@@ -58,13 +58,19 @@ static void
 test_tree(){
   int val = 10;
 
-  quadtree_t *tree = quadtree_new(1, 1, 10, 10);
-  assert(tree->root->bounds->nw->x == 1);
-  assert(tree->root->bounds->nw->y == 10.0);
-  assert(tree->root->bounds->se->x == 10.0);
-  assert(tree->root->bounds->se->y == 1);
+  quadtree_t *tree = quadtree_new(0, 0, 10, 10);
 
-
+  assert(quadtree_insert(tree, 1, 1, &val) == 1);
+  assert(quadtree_insert(tree, 6, 0, &val) == 1);
+  assert(quadtree_insert(tree, 3, 4, &val) == 1);
+  assert(quadtree_insert(tree, 3, 3, &val) == 1);
+  assert(quadtree_insert(tree, 2, 1.2, &val) == 1);
+  assert(quadtree_insert(tree, 2, 1, &val) == 1);
+  assert(quadtree_insert(tree, 5, 1, &val) == 1);
+  assert(quadtree_insert(tree, 1, 1.1, &val) == 1);
+  assert(quadtree_insert(tree, 1, 2.1, &val) == 1);
+  assert(quadtree_insert(tree, 1, 3.1, &val) == 1);
+#if 0
   assert(quadtree_insert(tree, 0, 0, &val) == 0);
   assert(quadtree_insert(tree, 110.0, 110.0, &val) == 0);
 
@@ -82,7 +88,17 @@ test_tree(){
   assert(quadtree_insert(tree, 3.0, 1.1, &val) == 1);
   assert(tree->length == 3);
   assert(quadtree_search(tree, 3.0, 1.1)->x == 3.0);
+#endif
   quadtree_walk(tree->root, ascent, descent);
+
+  quadtree_node_list_t *query_result = quadtree_search_bounds(tree, 2.5, 2.5, 2.5);
+  quadtree_node_list_t *curr = query_result;
+  printf("\nQuery results: ");
+  while(curr != NULL && curr->node != NULL) {
+          printf("(%lf, %lf) --> ", curr->node->point->x, curr->node->point->y);
+          curr = curr->next;
+  }
+  printf("NULL\n");
   quadtree_free(tree);
 }
 

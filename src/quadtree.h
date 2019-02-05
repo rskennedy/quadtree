@@ -32,6 +32,11 @@ typedef struct quadtree_node {
   void *key;
 } quadtree_node_t;
 
+typedef struct quadtree_node_list {
+        quadtree_node_t *node;
+        struct quadtree_node_list *next;
+} quadtree_node_list_t;
+
 typedef struct quadtree {
   quadtree_node_t *root;
   void (*key_free)(void *key);
@@ -77,6 +82,12 @@ quadtree_node_reset(quadtree_node_t* node, void (*key_free)(void*));
 quadtree_node_t*
 quadtree_node_with_bounds(double minx, double miny, double maxx, double maxy);
 
+quadtree_node_list_t*
+quadtree_node_list_new(quadtree_node_t *node);
+
+void
+quadtree_node_list_add(quadtree_node_list_t **list_p, quadtree_node_t *node);
+
 quadtree_t*
 quadtree_new(double minx, double miny, double maxx, double maxy);
 
@@ -85,6 +96,9 @@ quadtree_free(quadtree_t *tree);
 
 quadtree_point_t*
 quadtree_search(quadtree_t *tree, double x, double y);
+
+quadtree_node_list_t*
+quadtree_search_bounds(quadtree_t *tree, double x, double y, double radius);
 
 int
 quadtree_insert(quadtree_t *tree, double x, double y, void *key);

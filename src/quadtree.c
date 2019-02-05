@@ -24,6 +24,26 @@ node_contains_(quadtree_node_t *outer, quadtree_point_t *it) {
       && outer->bounds->se->y <= it->y;
 }
 
+/* private implementations */
+static int
+node_contains_bounds_(quadtree_bounds_t *inside, quadtree_bounds_t *outside) {
+  return outside != NULL
+      && outside->nw->x <= inside->nw->x
+      && outside->nw->y >= inside->nw->y
+      && outside->se->x >= inside->se->x
+      && outside->se->y <= inside->se->y;
+}
+
+bounds_contains_point(quadtree_bounds_t *bounds, quadtree_point_t *point)
+{
+        return bounds != NULL
+            && point != NULL
+            && bounds->nw->x <= point->x
+            && bounds->nw->y >= point->y
+            && bounds->se->x >= point->x
+            && bounds->se->y <= point->y;
+}
+
 static void
 elision_(void* key){}
 
@@ -44,7 +64,6 @@ get_quadrant_(quadtree_node_t *root, quadtree_point_t *point) {
   if(node_contains_(root->se, point)) return root->se;
   return NULL;
 }
-
 
 static int
 split_node_(quadtree_t *tree, quadtree_node_t *node){
@@ -98,6 +117,29 @@ find_(quadtree_node_t* node, double x, double y) {
   return NULL;
 }
 
+static inline void
+search_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result)
+{
+        if (root == NULL) {
+                return;
+        }
+        printf("Checking root w bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
+        if(quadtree_node_isleaf(root)){
+                if (bounds_contains_point(box, root->point)) {
+                        quadtree_node_list_add(result, root);
+                }
+        } else if (quadtree_node_ispointer(root)) {
+                if (node_contains_bounds_(root->nw->bounds, box))
+                        search_bounds_(root->nw, box, result);
+                if (node_contains_bounds_(root->ne->bounds, box))
+                        search_bounds_(root->ne, box, result);
+                if (node_contains_bounds_(root->sw->bounds, box))
+                        search_bounds_(root->sw, box, result);
+                if (node_contains_bounds_(root->se->bounds, box))
+                        search_bounds_(root->se, box, result);
+        }
+}
+
 /* cribbed from the google closure library. */
 static int
 insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *key) {
@@ -139,6 +181,26 @@ quadtree_new(double minx, double miny, double maxx, double maxy) {
   return tree;
 }
 
+/* public */
+quadtree_node_list_t*
+quadtree_node_list_new(quadtree_node_t *node) {
+        quadtree_node_list_t *new = malloc(sizeof(quadtree_node_list_t));
+        if (new == NULL) {
+                return NULL;
+        }
+        new->node = node;
+        new->next = NULL;
+        return new;
+}
+
+void
+quadtree_node_list_add(quadtree_node_list_t **list_p, quadtree_node_t *node)
+{
+        quadtree_node_list_t *new = quadtree_node_list_new(node);
+        new->next = *list_p;
+        *list_p = new;
+}
+
 int
 quadtree_insert(quadtree_t *tree, double x, double y, void *key) {
   quadtree_point_t *point;
@@ -149,7 +211,7 @@ quadtree_insert(quadtree_t *tree, double x, double y, void *key) {
     quadtree_point_free(point);
     return 0;
   }
-  
+
   if(!(insert_status = insert_(tree, tree->root, point, key))){
     quadtree_point_free(point);
     return 0;
@@ -161,6 +223,36 @@ quadtree_insert(quadtree_t *tree, double x, double y, void *key) {
 quadtree_point_t*
 quadtree_search(quadtree_t *tree, double x, double y) {
   return find_(tree->root, x, y);
+}
+
+quadtree_node_list_t*
+quadtree_search_bounds(quadtree_t *tree, double x, double y, double radius)
+{
+        //TODO: error checking on valid bounds for map
+
+        /* Build box */
+        quadtree_point_t *top_left = quadtree_point_new(x - radius, y + radius);
+        if (top_left == NULL) {
+                return NULL;
+        }
+        quadtree_point_t *bottom_right = quadtree_point_new(x + radius, y - radius);
+        if (bottom_right == NULL) {
+                quadtree_point_free(top_left);
+                return NULL;
+        }
+        quadtree_bounds_t *box = quadtree_bounds_new();
+        if (box == NULL) {
+                quadtree_point_free(top_left);
+                quadtree_point_free(bottom_right);
+                return NULL;
+        }
+        box->nw = top_left;
+        box->se = bottom_right;
+
+        /* Will contain list of matching nodes */
+        quadtree_node_list_t *result = NULL;
+        search_bounds_(tree->root, box, &result);
+        return result;
 }
 
 void
