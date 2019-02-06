@@ -99,6 +99,7 @@ test_tree(){
           curr = curr->next;
   }
   printf("NULL\n");
+  quadtree_node_list_free(query_result);
   quadtree_free(tree);
 }
 

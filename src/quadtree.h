@@ -86,6 +86,9 @@ quadtree_node_list_t*
 quadtree_node_list_new(quadtree_node_t *node);
 
 void
+quadtree_node_list_free(quadtree_node_list_t *list);
+
+void
 quadtree_node_list_add(quadtree_node_list_t **list_p, quadtree_node_t *node);
 
 quadtree_t*

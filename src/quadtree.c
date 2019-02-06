@@ -194,6 +194,23 @@ quadtree_node_list_new(quadtree_node_t *node) {
 }
 
 void
+quadtree_node_list_free(quadtree_node_list_t *list) {
+        if (list == NULL) {
+                return;
+        }
+
+        quadtree_node_list_t *next;
+        quadtree_node_list_t *curr = list;
+
+        while (curr != NULL) {
+                next = curr->next;
+                free(curr);
+                curr = next;
+        }
+}
+
+
+void
 quadtree_node_list_add(quadtree_node_list_t **list_p, quadtree_node_t *node)
 {
         quadtree_node_list_t *new = quadtree_node_list_new(node);
