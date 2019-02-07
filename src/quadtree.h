@@ -11,25 +11,25 @@ extern "C" {
 #include <math.h>
 
 typedef struct quadtree_point {
-  double x;
-  double y;
+        double x;
+        double y;
 } quadtree_point_t;
 
 typedef struct quadtree_bounds {
-  quadtree_point_t *nw;
-  quadtree_point_t *se;
-  double width;
-  double height;
+        quadtree_point_t *nw;
+        quadtree_point_t *se;
+        double width;
+        double height;
 } quadtree_bounds_t;
 
 typedef struct quadtree_node {
-  struct quadtree_node *ne;
-  struct quadtree_node *nw;
-  struct quadtree_node *se;
-  struct quadtree_node *sw;
-  quadtree_bounds_t *bounds;
-  quadtree_point_t  *point;
-  void *key;
+        struct quadtree_node *ne;
+        struct quadtree_node *nw;
+        struct quadtree_node *se;
+        struct quadtree_node *sw;
+        quadtree_bounds_t *bounds;
+        quadtree_point_t  *point;
+        void *key;
 } quadtree_node_t;
 
 typedef struct quadtree_node_list {
@@ -38,9 +38,9 @@ typedef struct quadtree_node_list {
 } quadtree_node_list_t;
 
 typedef struct quadtree {
-  quadtree_node_t *root;
-  void (*key_free)(void *key);
-  unsigned int length;
+        quadtree_node_t *root;
+        void (*key_free)(void *key);
+        unsigned int length;
 } quadtree_t;
 
 
