@@ -10,6 +10,13 @@ extern "C" {
 #include <stdlib.h>
 #include <math.h>
 
+typedef enum coordinate {
+        NW,
+        NE,
+        SW,
+        SE
+} coordinate_t;
+
 typedef struct quadtree_point {
         double x;
         double y;
@@ -23,6 +30,8 @@ typedef struct quadtree_bounds {
 } quadtree_bounds_t;
 
 typedef struct quadtree_node {
+        coordinate_t coord;
+        struct quadtree_node *parent;
         struct quadtree_node *ne;
         struct quadtree_node *nw;
         struct quadtree_node *se;
@@ -78,6 +87,15 @@ quadtree_node_isleaf(quadtree_node_t *node);
 
 void
 quadtree_node_reset(quadtree_node_t* node, void (*key_free)(void*));
+
+void
+quadtree_node_unlink(quadtree_node_t *node);
+
+void *
+quadtree_clear_leaf(quadtree_node_t *node);
+
+int
+quadtree_move_leaf(quadtree_t *tree, quadtree_node_t *node, quadtree_point_t *point);
 
 quadtree_node_t*
 quadtree_node_with_bounds(double minx, double miny, double maxx, double maxy);

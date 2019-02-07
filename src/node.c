@@ -2,6 +2,16 @@
 
 /* helpers */
 
+/* FIXME: I think these _is* functions are dumb.
+ * An empty is a node with all NULL values.
+ * A leaf is an empty with key and pointer filled in.
+ * A Pointer is the opposite of a leaf, meaning
+ * its 4 children are filled and it's key and pointer
+ * are NULL.
+ *
+ * This needs restructuring.
+ * */
+
 int
 quadtree_node_ispointer(quadtree_node_t *node){
         return node->nw != NULL
@@ -37,6 +47,7 @@ quadtree_node_new() {
         quadtree_node_t *node;
         if(!(node = malloc(sizeof(*node))))
                 return NULL;
+        node->parent = NULL;
         node->ne     = NULL;
         node->nw     = NULL;
         node->se     = NULL;

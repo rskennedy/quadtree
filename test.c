@@ -8,7 +8,11 @@
         test_##fn(); \
         puts("\x1b[1;32m ✓ \x1b[0m");
 
-
+void
+print_node(quadtree_node_t *node)
+{
+        printf("(%lf, %lf)\n", node->point->x, node->point->y);
+}
 
 void descent(quadtree_node_t *node){
         if(node->bounds != NULL)
@@ -53,17 +57,68 @@ test_bounds(){
         quadtree_bounds_free(bounds);
 }
 
+void
+do_nothing(void *arg) {}
+
+
+/* Convenience function */
+static quadtree_node_t *
+grab_first_node_from_query(quadtree_t *tree, double x, double y, double radius)
+{
+        quadtree_node_t *node;
+        quadtree_node_list_t *query_result = quadtree_search_bounds(tree, x, y, radius);
+        assert(query_result != NULL);
+
+        /* Grab first result. Should be only one */
+        node = query_result->node;
+        quadtree_node_list_free(query_result);
+        return node;
+}
 
 static void
 test_tree(){
         int val = 10;
 
         quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+        quadtree_node_t *node;
+        quadtree_node_list_t *query_result;
+
+        /* Test that quads can be reused. */
+        assert(quadtree_insert(tree, 4, 4, &val) == 1);
+        node = grab_first_node_from_query(tree, 2.5, 2.5, 2);
+        assert (quadtree_clear_leaf(node) != NULL);
+        /* New val for later sanity testing */
+        int val2 = 42;
+        assert(quadtree_insert(tree, 3, 4, &val2) == 1);
+
+        /* Test that quads can be moved.
+         * -- Lateral test from one quadrant to another under the same parent */
+
+        /* Grab old node */
+        node = grab_first_node_from_query(tree, 3, 4 ,1);
+        assert(node->point->x == 3 && node->point->y == 4);
+        /* Move from SW to NW */
+        assert(quadtree_move_leaf(tree, node, quadtree_point_new(3, 8)) == 1);
+
+        node = grab_first_node_from_query(tree, 3, 8, 2);
+        /* Check that query grabbed correct new node */
+        assert(node->point->x == 3 && node->point->y == 8);
+        assert(*(int *)node->key == 42);
+
+        /* Check that old node is gone */
+        query_result = quadtree_search_bounds(tree, 3, 4, 2);
+        assert(query_result == NULL);
+        quadtree_node_list_free(query_result);
+
+        /* Move from SW to NW */
+        assert(quadtree_move_leaf(tree, node, quadtree_point_new(3.2, 4)) == 1);
+
+
 
         assert(quadtree_insert(tree, 1, 1, &val) == 1);
         assert(quadtree_insert(tree, 6, 0, &val) == 1);
         assert(quadtree_insert(tree, 6, 6, &val) == 1);
-        assert(quadtree_insert(tree, 3, 4, &val) == 1);
+        assert(quadtree_insert(tree, 3.1, 4, &val) == 1);
         assert(quadtree_insert(tree, 3, 3, &val) == 1);
         assert(quadtree_insert(tree, 2, 1.2, &val) == 1);
         assert(quadtree_insert(tree, 2, 1, &val) == 1);
@@ -92,7 +147,7 @@ test_tree(){
 #endif
         quadtree_walk(tree->root, ascent, descent);
 
-        quadtree_node_list_t *query_result = quadtree_search_bounds(tree, 2.5, 2.5, 5);
+        query_result = quadtree_search_bounds(tree, 2.5, 2.5, 5);
         quadtree_node_list_t *curr = query_result;
         printf("\nQuery results: ");
         while(curr != NULL && curr->node != NULL) {
@@ -101,6 +156,17 @@ test_tree(){
         }
         printf("NULL\n");
         quadtree_node_list_free(query_result);
+
+        query_result = quadtree_search_bounds(tree, 3, 8, 0.1);
+        curr = query_result;
+        printf("\nQuery results: ");
+        while(curr != NULL && curr->node != NULL) {
+                printf("(%lf, %lf) --> ", curr->node->point->x, curr->node->point->y);
+                curr = curr->next;
+        }
+        printf("NULL\n");
+        quadtree_node_list_free(query_result);
+
         quadtree_free(tree);
 }
 
