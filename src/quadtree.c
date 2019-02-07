@@ -14,6 +14,9 @@ node_contains_(quadtree_node_t *outer, quadtree_point_t *it);
 static quadtree_node_t *
 get_quadrant_(quadtree_node_t *root, quadtree_point_t *point);
 
+static void
+search_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result);
+
 /* private implementations */
 static int
 node_contains_(quadtree_node_t *outer, quadtree_point_t *it) {
@@ -25,8 +28,9 @@ node_contains_(quadtree_node_t *outer, quadtree_point_t *it) {
 }
 
 /* private implementations */
-static int
-node_contains_bounds_(quadtree_bounds_t *inside, quadtree_bounds_t *outside) {
+static inline int
+bounds_contains_bounds_(quadtree_bounds_t *inside, quadtree_bounds_t *outside)
+{
   return outside != NULL
       && outside->nw->x <= inside->nw->x
       && outside->nw->y >= inside->nw->y
@@ -34,7 +38,8 @@ node_contains_bounds_(quadtree_bounds_t *inside, quadtree_bounds_t *outside) {
       && outside->se->y <= inside->se->y;
 }
 
-bounds_contains_point(quadtree_bounds_t *bounds, quadtree_point_t *point)
+static inline int
+bounds_contains_point_(quadtree_bounds_t *bounds, quadtree_point_t *point)
 {
         return bounds != NULL
             && point != NULL
@@ -117,7 +122,33 @@ find_(quadtree_node_t* node, double x, double y) {
   return NULL;
 }
 
-static inline void
+static void
+extract_all_(quadtree_node_t *root, quadtree_node_list_t *result)
+{
+        if (root == NULL) {
+                return;
+        }
+        else if(quadtree_node_isleaf(root)){
+                quadtree_node_list_add(result, root);
+        } else {
+                extract_all_(root->nw, result);
+                extract_all_(root->ne, result);
+                extract_all_(root->sw, result);
+                extract_all_(root->se, result);
+        }
+}
+
+static void
+eval_quad_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t *result)
+{
+        if (bounds_contains_bounds_(root->bounds, box)) {
+                extract_all_(root, result);
+        } else if (bounds_contains_point_(box, root->point)) {
+                search_bounds_(root, box, result);
+        }
+}
+
+static void
 search_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result)
 {
         if (root == NULL) {
@@ -125,18 +156,15 @@ search_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list
         }
         printf("Checking root w bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
         if(quadtree_node_isleaf(root)){
-                if (bounds_contains_point(box, root->point)) {
+                if (bounds_contains_point_(box, root->point)) {
                         quadtree_node_list_add(result, root);
                 }
         } else if (quadtree_node_ispointer(root)) {
-                if (node_contains_bounds_(root->nw->bounds, box))
-                        search_bounds_(root->nw, box, result);
-                if (node_contains_bounds_(root->ne->bounds, box))
-                        search_bounds_(root->ne, box, result);
-                if (node_contains_bounds_(root->sw->bounds, box))
-                        search_bounds_(root->sw, box, result);
-                if (node_contains_bounds_(root->se->bounds, box))
-                        search_bounds_(root->se, box, result);
+                /* Recursion occurs within eval_quad() */
+                eval_quad_(root->nw, box, result);
+                eval_quad_(root->ne, box, result);
+                eval_quad_(root->sw, box, result);
+                eval_quad_(root->se, box, result);
         }
 }
 
@@ -194,7 +222,8 @@ quadtree_node_list_new(quadtree_node_t *node) {
 }
 
 void
-quadtree_node_list_free(quadtree_node_list_t *list) {
+quadtree_node_list_free(quadtree_node_list_t *list)
+{
         if (list == NULL) {
                 return;
         }
