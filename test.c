@@ -76,6 +76,34 @@ grab_first_node_from_query(quadtree_t *tree, double x, double y, double radius)
 }
 
 static void
+test_tree_condense()
+{
+        int val = 10;
+        quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+
+        /* Ensure tree has two leaves where I expect them. */
+        assert(quadtree_insert(tree, 3, 8, &val) == 1);
+        assert(quadtree_insert(tree, 2, 2, &val) == 1);
+        assert(quadtree_node_ispointer(tree->root));
+        assert(quadtree_node_isleaf(tree->root->nw));
+        assert(quadtree_node_isempty(tree->root->ne));
+        assert(quadtree_node_isleaf(tree->root->sw));
+        assert(quadtree_node_isempty(tree->root->se));
+
+        /* Ensure tree condensed into a leaf properly */
+        quadtree_clear_leaf(tree->root->sw);
+        assert(quadtree_node_isleaf(tree->root));
+        assert(tree->root->nw == NULL);
+        assert(tree->root->ne == NULL);
+        assert(tree->root->sw == NULL);
+        assert(tree->root->se == NULL);
+
+        /* Ensure root condensed into an empty properly */
+        quadtree_clear_leaf(tree->root);
+        assert(quadtree_node_isempty(tree->root));
+}
+
+static void
 test_tree(){
         int val = 10;
 
@@ -109,11 +137,6 @@ test_tree(){
         query_result = quadtree_search_bounds(tree, 3, 4, 2);
         assert(query_result == NULL);
         quadtree_node_list_free(query_result);
-
-        /* Move from SW to NW */
-        assert(quadtree_move_leaf(tree, node, quadtree_point_new(3.2, 4)) == 1);
-
-
 
         assert(quadtree_insert(tree, 1, 1, &val) == 1);
         assert(quadtree_insert(tree, 6, 0, &val) == 1);
@@ -188,4 +211,5 @@ main(int argc, const char *argv[]){
         test(node);
         test(bounds);
         test(points);
+        test(tree_condense);
 }

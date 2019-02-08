@@ -31,6 +31,7 @@ typedef struct quadtree_bounds {
 
 typedef struct quadtree_node {
         coordinate_t coord;
+        unsigned int children_cnt;
         struct quadtree_node *parent;
         struct quadtree_node *ne;
         struct quadtree_node *nw;
