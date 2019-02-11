@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "src/quadtree.h"
 
@@ -8,7 +9,7 @@
         test_##fn(); \
         puts("\x1b[1;32m ✓ \x1b[0m");
 
-void
+        void
 print_node(quadtree_node_t *node)
 {
         printf("(%lf, %lf)\n", node->point->x, node->point->y);
@@ -21,6 +22,19 @@ void descent(quadtree_node_t *node){
 }
 
 void ascent(quadtree_node_t *node){
+        printf("\n");
+}
+
+void descent_draw(quadtree_node_t *node){
+        if(node->bounds != NULL)
+                printf("%f %f %f %f - ", node->bounds->nw->x,
+                                node->bounds->nw->y, node->bounds->se->x, node->bounds->se->y);
+        if (node->point != NULL)
+                printf("%f:%f\n", node->point->x, node->point->y);
+
+}
+
+void ascent_draw(quadtree_node_t *node){
         printf("\n");
 }
 
@@ -62,7 +76,7 @@ do_nothing(void *arg) {}
 
 
 /* Convenience function */
-static quadtree_node_t *
+        static quadtree_node_t *
 grab_first_node_from_query(quadtree_t *tree, double x, double y, double radius)
 {
         quadtree_node_t *node;
@@ -75,7 +89,7 @@ grab_first_node_from_query(quadtree_t *tree, double x, double y, double radius)
         return node;
 }
 
-static void
+        static void
 test_tree_condense()
 {
         int val = 10;
@@ -101,6 +115,29 @@ test_tree_condense()
         /* Ensure root condensed into an empty properly */
         quadtree_clear_leaf(tree->root);
         assert(quadtree_node_isempty(tree->root));
+}
+
+        static void
+test_tree_condense_draw()
+{
+        int val = 10;
+        quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+
+        /* Ensure tree has two leaves where I expect them. */
+        assert(quadtree_insert(tree, 3, 8, &val) == 1);
+        assert(quadtree_insert(tree, 2, 2, &val) == 1);
+        assert(quadtree_insert(tree, 8, 8, &val) == 1);
+        assert(quadtree_insert(tree, 9, 9, &val) == 1);
+        assert(quadtree_insert(tree, 1, 2, &val) == 1);
+        assert(quadtree_insert(tree, 1, 1, &val) == 1);
+
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+        /* Ensure tree condensed into a leaf properly */
+        printf("\n\n\n\t NEW TREE\n\n");
+        quadtree_clear_leaf(quadtree_node_search(tree, 1.0, 1.0));
+        quadtree_clear_leaf(quadtree_node_search(tree, 1.0, 2.0));
+        quadtree_clear_leaf(quadtree_node_search(tree, 2.0, 2.0));
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
 }
 
 static void
@@ -170,9 +207,9 @@ test_tree(){
 #endif
         quadtree_walk(tree->root, ascent, descent);
 
-        query_result = quadtree_search_bounds(tree, 2.5, 2.5, 5);
+        query_result = quadtree_search_bounds_include_partial(tree, 2.5, 2.5, 5);
         quadtree_node_list_t *curr = query_result;
-        printf("\nQuery results: ");
+        printf("\nQuery results: for (2.5, 2.5) r=5:\n");
         while(curr != NULL && curr->node != NULL) {
                 printf("(%lf, %lf) --> ", curr->node->point->x, curr->node->point->y);
                 curr = curr->next;
@@ -182,7 +219,7 @@ test_tree(){
 
         query_result = quadtree_search_bounds(tree, 3, 8, 0.1);
         curr = query_result;
-        printf("\nQuery results: ");
+        printf("\nQuery results:\n");
         while(curr != NULL && curr->node != NULL) {
                 printf("(%lf, %lf) --> ", curr->node->point->x, curr->node->point->y);
                 curr = curr->next;
@@ -194,12 +231,106 @@ test_tree(){
 }
 
 static void
+test_partial_coverage(){
+        int val = 10;
+
+        quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+        quadtree_node_list_t *query_result;
+
+        assert(quadtree_insert(tree, 1, 1, &val) == 1);
+        assert(quadtree_insert(tree, 3, 1, &val) == 1);
+        quadtree_walk(tree->root, ascent, descent);
+
+        query_result = quadtree_search_bounds(tree, 2.5, 2.5, 5);
+        quadtree_node_list_t *curr = query_result;
+        printf("\nQuery results: for (2.5, 2.5) r=5:\n");
+        while(curr != NULL && curr->node != NULL) {
+                printf("(%lf, %lf) --> ", curr->node->point->x, curr->node->point->y);
+                curr = curr->next;
+        }
+        printf("NULL\n");
+        quadtree_node_list_free(query_result);
+
+        query_result = quadtree_search_bounds(tree, 2.5, 1, 1);
+        curr = query_result;
+        printf("\nQuery results:\n");
+        while(curr != NULL && curr->node != NULL) {
+                printf("(%lf, %lf) --> ", curr->node->point->x, curr->node->point->y);
+                curr = curr->next;
+        }
+        printf("NULL\n");
+
+        query_result = quadtree_search_bounds_include_partial(tree, 2.5, 1, 1);
+
+        curr = query_result;
+        printf("\nQuery results (partial):\n");
+        while(curr != NULL && curr->node != NULL) {
+                printf("(%lf, %lf) --> ", curr->node->point->x, curr->node->point->y);
+                curr = curr->next;
+        }
+        printf("NULL\n");
+
+        quadtree_node_list_free(query_result);
+
+        quadtree_free(tree);
+}
+static void
 test_points(){
         quadtree_point_t *point = quadtree_point_new(5, 6);
         assert(point->x == 5);
         assert(point->y == 6);
         quadtree_point_free(point);
 }
+
+#define NUM_RAND_POINTS 1000
+#define NUM_CLUSTERS_MAX 5
+#define NUM_CLUSTERS_MIN 1
+#define CLUSTER_SIZE_MAX 250
+#define CLUSTER_SIZE_MIN 50
+#define RADIUS_MAX 3
+#define EXTRA_SPACE_ADJ 0.5
+static void
+test_rand_tree(){
+        int i, num_clusters, cluster, num_elem_in_cluster, origin_x, origin_y, radius;
+        int val = 10;
+        double x,y, extra_space;
+
+        quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+
+        //a few random points first
+        for (i = 0; i < NUM_RAND_POINTS; i++) {
+                x = (double) ((double)rand()/RAND_MAX*10.0);
+                y = (double) ((double)rand()/RAND_MAX*10.0);
+                quadtree_insert(tree, x, y, &val);
+        }
+        num_clusters = rand() % (NUM_CLUSTERS_MAX + 1 - NUM_CLUSTERS_MIN) + NUM_CLUSTERS_MIN;
+        for (cluster = 0; cluster < num_clusters; cluster++){
+                num_elem_in_cluster = rand() % (CLUSTER_SIZE_MAX + 1 - CLUSTER_SIZE_MIN) + CLUSTER_SIZE_MIN;
+                radius = (double) ((double)rand()/RAND_MAX*RADIUS_MAX);
+                origin_x = (double) ((double)rand()/RAND_MAX*10.0);
+                origin_y = (double) ((double)rand()/RAND_MAX*10.0);
+                for (i = 0; i < num_elem_in_cluster; i++) {
+                        do {
+                                x = (double) ((double)rand()/RAND_MAX*radius*2-radius+origin_x);
+                                y = (double) ((double)rand()/RAND_MAX*radius*2-radius+origin_y);
+                                extra_space = (double) ((double)rand()/RAND_MAX*EXTRA_SPACE_ADJ);
+                                //if its more that that its not in a circle!
+                        } while ((x-origin_x)*(x-origin_x) + (y-origin_y)*(y-origin_y) > radius * radius + extra_space*extra_space);
+                        quadtree_insert(tree, x, y, &val);
+                }
+        }
+
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
+        quadtree_node_list_t *query_result = quadtree_search_bounds_include_partial(tree, 4.9, 4.5, 2.9);
+        quadtree_node_list_t *curr = query_result;
+        while(curr != NULL && curr->node != NULL) {
+                printf("Selected: %lf %lf\n", curr->node->point->x, curr->node->point->y);
+                curr = curr->next;
+        }
+        quadtree_free(tree);
+}
+
 
 int
 main(int argc, const char *argv[]){
@@ -212,4 +343,8 @@ main(int argc, const char *argv[]){
         test(bounds);
         test(points);
         test(tree_condense);
+        test(partial_coverage);
+        test(tree_condense_draw);
+
+        test(rand_tree);
 }

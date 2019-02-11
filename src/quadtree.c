@@ -18,6 +18,12 @@ get_quadrant_(quadtree_node_t *root, quadtree_point_t *point);
 static void
 search_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result);
 
+static void
+search_bounds_include_partial_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result);
+
+static int
+bounds_contains_point_(quadtree_bounds_t *bounds, quadtree_point_t *point);
+
 /* private implementations */
 static int
 node_contains_(quadtree_node_t *outer, quadtree_point_t *it) {
@@ -37,6 +43,14 @@ bounds_contains_bounds_(quadtree_bounds_t *inside, quadtree_bounds_t *outside)
                 && outside->nw->y >= inside->nw->y
                 && outside->se->x >= inside->se->x
                 && outside->se->y <= inside->se->y;
+}
+
+static inline int
+bounds_overlap_bounds_(quadtree_bounds_t *inside, quadtree_bounds_t *outside)
+{
+        return ! (outside == NULL
+                  || (inside->nw->x > outside->se->x || outside->nw->x > inside->se->x) 
+                  || (inside->nw->y < outside->se->y || outside->nw->y < inside->se->y));
 }
 
 static inline int
@@ -134,6 +148,24 @@ find_(quadtree_node_t* node, double x, double y) {
         return NULL;
 }
 
+static quadtree_node_t*
+find_node_from_point_(quadtree_node_t* node, double x, double y) {
+        if(!node){
+                return NULL;
+        }
+        if(quadtree_node_isleaf(node)){
+                if(node->point->x == x && node->point->y == y)
+                        return node;
+        } else if(quadtree_node_ispointer(node)){
+                quadtree_point_t test;
+                test.x = x;
+                test.y = y;
+                return find_node_from_point_(get_quadrant_(node, &test), x, y);
+        }
+
+        return NULL;
+}
+
 static void
 extract_all_(quadtree_node_t *root, quadtree_node_list_t **result)
 {
@@ -151,6 +183,24 @@ extract_all_(quadtree_node_t *root, quadtree_node_list_t **result)
 }
 
 static void
+extract_all_within_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result)
+{
+        if (root == NULL) {
+                return;
+        }
+        else if(quadtree_node_isleaf(root)){
+                printf("Checking if (%lf, %lf) is within (%lf, %lf) (%lf, %lf)\n", root->point->x, root->point->y, box->nw->x, box->nw->y, box->se->x, box->se->y);
+                if (bounds_contains_point_(box, root->point))
+                        quadtree_node_list_add(result, root);
+        } else {
+                extract_all_within_bounds_(root->nw, box, result);
+                extract_all_within_bounds_(root->ne, box, result);
+                extract_all_within_bounds_(root->sw, box, result);
+                extract_all_within_bounds_(root->se, box, result);
+        }
+}
+
+static void
 eval_quad_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result)
 {
         if (bounds_contains_bounds_(root->bounds, box)) {
@@ -161,22 +211,67 @@ eval_quad_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t *
 }
 
 static void
+eval_quad_partial_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result)
+{
+        if (root == NULL)
+                return;
+
+        /* Check if completely inside */
+        if (bounds_contains_bounds_(root->bounds, box)) {
+                extract_all_(root, result);
+        /* If overlapping a part of it explore child quads */
+        } else if (bounds_overlap_bounds_(root->bounds, box)) {
+                if (quadtree_node_ispointer(root)) {
+                        eval_quad_partial_(root->nw, box, result);
+                        eval_quad_partial_(root->ne, box, result);
+                        eval_quad_partial_(root->sw, box, result);
+                        eval_quad_partial_(root->se, box, result);
+                } else {
+                        extract_all_within_bounds_(root, box, result);
+                }
+        /* If its a leaf */
+        } else if(quadtree_node_isleaf(root) && bounds_contains_point_(box, root->point)) {
+                quadtree_node_list_add(result, root);
+        }
+}
+
+static void
 search_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result)
 {
         if (root == NULL) {
                 return;
         }
-        printf("Checking root w bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
+        printf("checking root w bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
         if(quadtree_node_isleaf(root)){
                 if (bounds_contains_point_(box, root->point)) {
                         quadtree_node_list_add(result, root);
                 }
         } else if (quadtree_node_ispointer(root)) {
-                /* Recursion occurs within eval_quad() */
+                /* recursion occurs within eval_quad() */
                 eval_quad_(root->nw, box, result);
                 eval_quad_(root->ne, box, result);
                 eval_quad_(root->sw, box, result);
                 eval_quad_(root->se, box, result);
+        }
+}
+
+static void
+search_bounds_include_partial_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list_t **result)
+{
+        if (root == NULL) {
+                return;
+        }
+        printf("Checking root w partial bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
+        if(quadtree_node_isleaf(root)){
+                if (bounds_contains_point_(box, root->point)) {
+                        quadtree_node_list_add(result, root);
+                }
+        } else if (quadtree_node_ispointer(root)) {
+                /* recursion occurs within eval_quad() */
+                eval_quad_partial_(root->nw, box, result);
+                eval_quad_partial_(root->ne, box, result);
+                eval_quad_partial_(root->sw, box, result);
+                eval_quad_partial_(root->se, box, result);
         }
 }
 
@@ -303,6 +398,11 @@ quadtree_search(quadtree_t *tree, double x, double y) {
         return find_(tree->root, x, y);
 }
 
+quadtree_node_t*
+quadtree_node_search(quadtree_t *tree, double x, double y) {
+        return find_node_from_point_(tree->root, x, y);
+}
+
 quadtree_node_list_t*
 quadtree_search_bounds(quadtree_t *tree, double x, double y, double radius)
 {
@@ -333,6 +433,36 @@ quadtree_search_bounds(quadtree_t *tree, double x, double y, double radius)
         return result;
 }
 
+quadtree_node_list_t*
+quadtree_search_bounds_include_partial(quadtree_t *tree, double x, double y, double radius)
+{
+        //TODO: error checking on valid bounds for map
+
+        /* Build box */
+        quadtree_point_t *top_left = quadtree_point_new(x - radius, y + radius);
+        if (top_left == NULL) {
+                return NULL;
+        }
+        quadtree_point_t *bottom_right = quadtree_point_new(x + radius, y - radius);
+        if (bottom_right == NULL) {
+                quadtree_point_free(top_left);
+                return NULL;
+        }
+        quadtree_bounds_t *box = quadtree_bounds_new();
+        if (box == NULL) {
+                quadtree_point_free(top_left);
+                quadtree_point_free(bottom_right);
+                return NULL;
+        }
+        box->nw = top_left;
+        box->se = bottom_right;
+
+        /* Will contain list of matching nodes */
+        quadtree_node_list_t *result = NULL;
+        search_bounds_include_partial_(tree->root, box, &result);
+        return result;
+}
+
 void
 quadtree_free(quadtree_t *tree) {
         if(tree->key_free != NULL) {
@@ -357,6 +487,9 @@ quadtree_walk(quadtree_node_t *root, void (*descent)(quadtree_node_t *node),
 static void
 condense_parent(quadtree_node_t *parent)
 {
+        if (parent == NULL)
+                return;
+
         quadtree_node_t *last_child = NULL;
         /* Parent replaces last child. */
         if (quadtree_node_isleaf(parent->nw)) last_child = parent->nw;
@@ -376,6 +509,10 @@ condense_parent(quadtree_node_t *parent)
         parent->ne = NULL;
         parent->sw = NULL;
         parent->se = NULL;
+
+        if (parent->parent != NULL && parent->parent->children_cnt == 1) {
+                condense_parent(parent->parent);
+        }
 }
 
 /*

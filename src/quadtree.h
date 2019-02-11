@@ -119,8 +119,15 @@ quadtree_free(quadtree_t *tree);
 quadtree_point_t*
 quadtree_search(quadtree_t *tree, double x, double y);
 
+quadtree_node_t*
+quadtree_node_search(quadtree_t *tree, double x, double y);
+
 quadtree_node_list_t*
 quadtree_search_bounds(quadtree_t *tree, double x, double y, double radius);
+
+
+quadtree_node_list_t*
+quadtree_search_bounds_include_partial(quadtree_t *tree, double x, double y, double radius);
 
 int
 quadtree_insert(quadtree_t *tree, double x, double y, void *key);
