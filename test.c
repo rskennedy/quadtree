@@ -89,23 +89,33 @@ grab_first_node_from_query(quadtree_t *tree, double x, double y, double radius)
         return node;
 }
 
-        static void
+static void
 test_tree_condense()
 {
         int val = 10;
         quadtree_t *tree = quadtree_new(0, 0, 10, 10);
 
         /* Ensure tree has two leaves where I expect them. */
-        assert(quadtree_insert(tree, 3, 8, &val) == 1);
-        assert(quadtree_insert(tree, 2, 2, &val) == 1);
+        assert(quadtree_insert(tree, 3, 8, &val, NULL) == 1);
+        printf("\n1 child---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
+        assert(quadtree_insert(tree, 2, 2, &val, NULL) == 1);
         assert(quadtree_node_ispointer(tree->root));
         assert(quadtree_node_isleaf(tree->root->nw));
         assert(quadtree_node_isempty(tree->root->ne));
         assert(quadtree_node_isleaf(tree->root->sw));
         assert(quadtree_node_isempty(tree->root->se));
 
+        printf("\nBEFORE---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
         /* Ensure tree condensed into a leaf properly */
-        quadtree_clear_leaf(tree->root->sw);
+        quadtree_clear_leaf_with_condense(tree, quadtree_node_search(tree, 2.0, 2.0));
+        //quadtree_clear_leaf_with_condense(tree, tree->root->sw);
+        printf("\nAFTER---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
         assert(quadtree_node_isleaf(tree->root));
         assert(tree->root->nw == NULL);
         assert(tree->root->ne == NULL);
@@ -117,19 +127,97 @@ test_tree_condense()
         assert(quadtree_node_isempty(tree->root));
 }
 
-        static void
+static void
+test_leaf_move(void)
+{
+        int val = 10;
+        quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+
+        /* Ensure tree has two leaves where I expect them. */
+        assert(quadtree_insert(tree, 3, 8, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 2, 2, &val, NULL) == 1);
+        assert(quadtree_node_ispointer(tree->root));
+        assert(quadtree_node_isleaf(tree->root->nw));
+        assert(quadtree_node_isempty(tree->root->ne));
+        assert(quadtree_node_isleaf(tree->root->sw));
+        assert(quadtree_node_isempty(tree->root->se));
+
+        printf("\nBEFORE---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
+        /* Ensure tree condensed into a leaf properly */
+        quadtree_point_t *point = malloc(sizeof(quadtree_point_t));
+        if (point == NULL) {
+                return;
+        }
+        point->x = 8;
+        point->y = 8;
+        quadtree_node_t *node_the_node = quadtree_node_search(tree, 3.0, 8.0);
+        assert(quadtree_move_leaf(tree, &node_the_node, point) == 1);
+
+        printf("\nAFTER---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+}
+
+static void
+test_leaf_move_complex(void)
+{
+        int val = 10;
+        int i;
+        quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+
+        /* Ensure tree has two leaves where I expect them. */
+        assert(quadtree_insert(tree, 3, 8, &val, NULL) == 1);
+        //assert(quadtree_insert(tree, 2, 2, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 8, 8, &val, NULL) == 1);
+        //assert(quadtree_insert(tree, 9, 9, &val, NULL) == 1);
+        //assert(quadtree_insert(tree, 1, 2, &val, NULL) == 1);
+        //assert(quadtree_insert(tree, 1, 1, &val, NULL) == 1);
+
+        printf("\nBEFORE---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
+        quadtree_node_t *node_the_node = quadtree_node_search(tree, 3.0, 8.0);
+        quadtree_node_t *node_the_node2 = quadtree_node_search(tree, 8.0, 8.0);
+
+        assert(quadtree_node_isleaf(node_the_node));
+        assert(quadtree_node_isleaf(node_the_node2));
+
+        /* Ensure tree condensed into a leaf properly */
+        quadtree_point_t *point = malloc(sizeof(quadtree_point_t));
+        if (point == NULL) {
+                return;
+        }
+        point->x = 2;
+        point->y = 2;
+        for (i = 0; i < 1000; i++) {
+                point->x += 0.0001;
+                printf("\nMoving point (%f, %f) to (%f, %f)\n", node_the_node->point->x, node_the_node->point->y, point->x, point->y);
+                assert(quadtree_move_leaf(tree, &node_the_node, point) == 1);
+                point->y -= 0.0001;
+                //printf("Moving point (%f, %f) to (%f, %f)\n", node_the_node2->point->x, node_the_node2->point->y, point->x, point->y);
+                assert(quadtree_move_leaf(tree, &node_the_node2, point) == 1);
+                assert(node_the_node->point != NULL);
+                assert(node_the_node2->point != NULL);
+        }
+
+        printf("\nAFTER---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+}
+
+static void
 test_tree_condense_draw()
 {
         int val = 10;
         quadtree_t *tree = quadtree_new(0, 0, 10, 10);
 
         /* Ensure tree has two leaves where I expect them. */
-        assert(quadtree_insert(tree, 3, 8, &val) == 1);
-        assert(quadtree_insert(tree, 2, 2, &val) == 1);
-        assert(quadtree_insert(tree, 8, 8, &val) == 1);
-        assert(quadtree_insert(tree, 9, 9, &val) == 1);
-        assert(quadtree_insert(tree, 1, 2, &val) == 1);
-        assert(quadtree_insert(tree, 1, 1, &val) == 1);
+        assert(quadtree_insert(tree, 3, 8, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 2, 2, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 8, 8, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 9, 9, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 1, 2, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 1, 1, &val, NULL) == 1);
 
         quadtree_walk(tree->root, ascent_draw, descent_draw);
         /* Ensure tree condensed into a leaf properly */
@@ -149,12 +237,12 @@ test_tree(){
         quadtree_node_list_t *query_result;
 
         /* Test that quads can be reused. */
-        assert(quadtree_insert(tree, 4, 4, &val) == 1);
+        assert(quadtree_insert(tree, 4, 4, &val, NULL) == 1);
         node = grab_first_node_from_query(tree, 2.5, 2.5, 2);
         assert (quadtree_clear_leaf(node) != NULL);
         /* New val for later sanity testing */
         int val2 = 42;
-        assert(quadtree_insert(tree, 3, 4, &val2) == 1);
+        assert(quadtree_insert(tree, 3, 4, &val2, NULL) == 1);
 
         /* Test that quads can be moved.
          * -- Lateral test from one quadrant to another under the same parent */
@@ -163,7 +251,7 @@ test_tree(){
         node = grab_first_node_from_query(tree, 3, 4 ,1);
         assert(node->point->x == 3 && node->point->y == 4);
         /* Move from SW to NW */
-        assert(quadtree_move_leaf(tree, node, quadtree_point_new(3, 8)) == 1);
+        assert(quadtree_move_leaf(tree, &node, quadtree_point_new(3, 8)) == 1);
 
         node = grab_first_node_from_query(tree, 3, 8, 2);
         /* Check that query grabbed correct new node */
@@ -175,19 +263,19 @@ test_tree(){
         assert(query_result == NULL);
         quadtree_node_list_free(query_result);
 
-        assert(quadtree_insert(tree, 1, 1, &val) == 1);
-        assert(quadtree_insert(tree, 6, 0, &val) == 1);
-        assert(quadtree_insert(tree, 6, 6, &val) == 1);
-        assert(quadtree_insert(tree, 3.1, 4, &val) == 1);
-        assert(quadtree_insert(tree, 3, 3, &val) == 1);
-        assert(quadtree_insert(tree, 2, 1.2, &val) == 1);
-        assert(quadtree_insert(tree, 2, 1, &val) == 1);
-        assert(quadtree_insert(tree, 5, 1, &val) == 1);
-        assert(quadtree_insert(tree, 1, 1.1, &val) == 1);
-        assert(quadtree_insert(tree, 1, 2.1, &val) == 1);
-        assert(quadtree_insert(tree, 1, 3.1, &val) == 1);
+        assert(quadtree_insert(tree, 1, 1, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 6, 0, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 6, 6, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 3.1, 4, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 3, 3, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 2, 1.2, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 2, 1, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 5, 1, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 1, 1.1, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 1, 2.1, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 1, 3.1, &val, NULL) == 1);
 #if 0
-        assert(quadtree_insert(tree, 0, 0, &val) == 0);
+        assert(quadtree_insert(tree, 0, 0, &val, NULL) == 0);
         assert(quadtree_insert(tree, 110.0, 110.0, &val) == 0);
 
         assert(quadtree_insert(tree, 8.0, 2.0, &val) != 0);
@@ -237,8 +325,8 @@ test_partial_coverage(){
         quadtree_t *tree = quadtree_new(0, 0, 10, 10);
         quadtree_node_list_t *query_result;
 
-        assert(quadtree_insert(tree, 1, 1, &val) == 1);
-        assert(quadtree_insert(tree, 3, 1, &val) == 1);
+        assert(quadtree_insert(tree, 1, 1, &val, NULL) == 1);
+        assert(quadtree_insert(tree, 3, 1, &val, NULL) == 1);
         quadtree_walk(tree->root, ascent, descent);
 
         query_result = quadtree_search_bounds(tree, 2.5, 2.5, 5);
@@ -301,7 +389,7 @@ test_rand_tree(){
         for (i = 0; i < NUM_RAND_POINTS; i++) {
                 x = (double) ((double)rand()/RAND_MAX*10.0);
                 y = (double) ((double)rand()/RAND_MAX*10.0);
-                quadtree_insert(tree, x, y, &val);
+                quadtree_insert(tree, x, y, &val, NULL);
         }
         num_clusters = rand() % (NUM_CLUSTERS_MAX + 1 - NUM_CLUSTERS_MIN) + NUM_CLUSTERS_MIN;
         for (cluster = 0; cluster < num_clusters; cluster++){
@@ -316,7 +404,7 @@ test_rand_tree(){
                                 extra_space = (double) ((double)rand()/RAND_MAX*EXTRA_SPACE_ADJ);
                                 //if its more that that its not in a circle!
                         } while ((x-origin_x)*(x-origin_x) + (y-origin_y)*(y-origin_y) > radius * radius + extra_space*extra_space);
-                        quadtree_insert(tree, x, y, &val);
+                        quadtree_insert(tree, x, y, &val, NULL);
                 }
         }
 
@@ -345,6 +433,8 @@ main(int argc, const char *argv[]){
         test(tree_condense);
         test(partial_coverage);
         test(tree_condense_draw);
+        test(leaf_move);
 
         test(rand_tree);
+        test(leaf_move_complex);
 }

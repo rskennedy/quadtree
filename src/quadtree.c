@@ -4,10 +4,10 @@
 
 /* private prototypes */
 static int
-split_node_(quadtree_t *tree, quadtree_node_t *node);
+split_node_(quadtree_t *tree, quadtree_node_t *node, quadtree_node_t **fill_this_in);
 
 static int
-insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *key);
+insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *key, quadtree_node_t **node_p);
 
 static int
 node_contains_(quadtree_node_t *outer, quadtree_point_t *it);
@@ -23,6 +23,22 @@ search_bounds_include_partial_(quadtree_node_t *root, quadtree_bounds_t *box, qu
 
 static int
 bounds_contains_point_(quadtree_bounds_t *bounds, quadtree_point_t *point);
+
+static void
+condense_parent(quadtree_t *tree,quadtree_node_t *parent);
+
+void descent_(quadtree_node_t *node){
+  if(node->bounds != NULL)
+    //printf("{ nw.x:%f, nw.y:%f, se.x:%f, se.y:%f }: ", node->bounds->nw->x,
+    printf("%f %f %f %f - ", node->bounds->nw->x,
+      node->bounds->nw->y, node->bounds->se->x, node->bounds->se->y);
+  if(node->point != NULL)
+    printf("%lf:%lf\n", node->point->x, node->point->y);
+}
+
+void ascent_(quadtree_node_t *node){
+  printf("\n");
+}
 
 /* private implementations */
 static int
@@ -85,8 +101,146 @@ get_quadrant_(quadtree_node_t *root, quadtree_point_t *point) {
         return NULL;
 }
 
+static inline void
+swap_points(quadtree_node_t *node, quadtree_node_t *new_node)
+{
+        quadtree_point_t *tmp = node->point;
+        node->point = new_node->point;
+        new_node->point = tmp;
+}
+
+static inline void
+swap_coordinates(quadtree_node_t *node, quadtree_node_t *new_node)
+{
+        coordinate_t tmp = node->coord;
+        node->coord = new_node->coord;
+        new_node->coord = tmp;
+}
+
+static inline void
+swap_bounds(quadtree_node_t *node, quadtree_node_t *new_node)
+{
+        quadtree_bounds_t *tmp = node->bounds;
+        node->bounds = new_node->bounds;
+        new_node->bounds = tmp;
+}
+
+
+static inline void
+swap_parents(quadtree_t *tree, quadtree_node_t *node, quadtree_node_t *new_node)
+{
+        quadtree_node_t *node_parent = node->parent;
+        quadtree_node_t *new_node_parent = new_node->parent;
+        if (node_parent == NULL && new_node_parent ==NULL)
+                assert(0);
+        /*
+        if (node_parent == NULL)
+                node_parent = tree->root; 
+        if (new_node_parent == NULL)
+                new_node_parent = tree->root; 
+        */
+
+        if (node_parent != NULL) {
+                switch(node->coord) {
+                        case NW:
+                                node_parent->nw = new_node;
+                                break;
+                        case NE:
+                                node_parent->ne = new_node;
+                                break;
+                        case SW:
+                                node_parent->sw = new_node;
+                                break;
+                        case SE:
+                                node_parent->se = new_node;
+                                break;
+                        case NO_COORDINATE:
+                                break;
+                        default:
+                                printf("Whose demon node is this?\n");
+                                assert(0);
+                }
+        }
+
+        if (new_node_parent != NULL) {       
+                switch(new_node->coord) {
+                        case NW:
+                                new_node_parent->nw = node;
+                                break;
+                        case NE:
+                                new_node_parent->ne = node;
+                                break;
+                        case SW:
+                                new_node_parent->sw = node;
+                                break;
+                        case SE:
+                                new_node_parent->se = node;
+                                break;
+                        case NO_COORDINATE:
+                                break;
+                        default:
+                                printf("Whose demon node is this?\n");
+                                assert(0);
+                }
+        }
+
+        if (node_parent == NULL)
+                tree->root = new_node;
+        else if (new_node_parent == NULL)
+                tree->root = node;
+
+        /* node->parent = new_node->parent; */
+        node->parent = new_node;
+        new_node->parent = node_parent;
+
+        node->nw->parent = new_node;
+        node->ne->parent = new_node;
+        node->sw->parent = new_node;
+        node->se->parent = new_node;
+}
+
+static inline void
+swap_children_count(quadtree_node_t *node, quadtree_node_t *new_node)
+{
+        unsigned int tmp = node->children_cnt;
+        node->children_cnt = new_node->children_cnt;
+        new_node->children_cnt = tmp;
+}
+
+static inline void
+swap_children(quadtree_node_t *node, quadtree_node_t *new_node)
+{
+        quadtree_node_t *nw = node->nw;
+        quadtree_node_t *ne = node->ne;
+        quadtree_node_t *sw = node->sw;
+        quadtree_node_t *se = node->se;
+
+        node->nw = new_node->nw;
+        node->ne = new_node->ne;
+        node->sw = new_node->sw;
+        node->se = new_node->se;
+
+        new_node->nw = nw;
+        new_node->ne = ne;
+        new_node->sw = sw;
+        new_node->se = se;
+}
+
+static void
+swap_node_details(quadtree_t *tree, quadtree_node_t *node, quadtree_node_t *new_node)
+{
+        /* swap parents first */
+        swap_parents(tree, node, new_node);
+        
+        swap_coordinates(node, new_node);
+        swap_points(node, new_node);
+        swap_bounds(node, new_node);
+        swap_children(node, new_node);
+        swap_children_count(node, new_node);
+}
+
 static int
-split_node_(quadtree_t *tree, quadtree_node_t *node){
+split_node_(quadtree_t *tree, quadtree_node_t *node, quadtree_node_t **fill_this_in){
         quadtree_node_t *nw;
         quadtree_node_t *ne;
         quadtree_node_t *sw;
@@ -126,7 +280,15 @@ split_node_(quadtree_t *tree, quadtree_node_t *node){
         node->point = NULL;
         node->key   = NULL;
 
-        return insert_(tree, node, old, key);
+        quadtree_node_t *new_node = NULL;
+        int ret = insert_(tree, node, old, key, &new_node);
+        if (ret > 0) {
+               assert(new_node != NULL);
+               swap_node_details(tree, node, new_node);
+               *fill_this_in = new_node;
+        }
+        return ret;
+
 }
 
 
@@ -291,33 +453,44 @@ dec_parent_cnt(quadtree_node_t *node)
 
 /* cribbed from the google closure library. */
 static int
-insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *key) {
+insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *key, quadtree_node_t **node_p) {
         if(quadtree_node_isempty(root)){
                 root->point = point;
                 root->key   = key;
                 if (root->parent != NULL) {
                         inc_parent_cnt(root);
                 }
+                if (node_p != NULL)
+                        *node_p = root;
                 return 1; /* normal insertion flag */
         } else if(quadtree_node_isleaf(root)){
-                if(root->point->x == point->x && root->point->y == point->y){
+                quadtree_node_t *fill_this_in = NULL;
+                if (root->point->x == point->x && root->point->y == point->y){
                         reset_node_(tree, root);
                         root->point = point;
                         root->key   = key;
-                        if (root->parent != NULL) {
-                                inc_parent_cnt(root);
-                        }
+                        if (node_p != NULL)
+                                *node_p = root;
                         return 2; /* replace insertion flag */
                 } else {
-                        if(!split_node_(tree, root)){
+                        if (!split_node_(tree, root, &fill_this_in)){
+                                printf("Failed to split node\n");
                                 return 0; /* failed insertion flag */
                         }
-                        return insert_(tree, root, point, key);
+                        return insert_(tree, fill_this_in, point, key, node_p);
                 }
         } else if(quadtree_node_ispointer(root)){
                 quadtree_node_t* quadrant = get_quadrant_(root, point);
-                if (quadrant == NULL) return 0;
-                return insert_(tree, quadrant, point, key);
+                if (quadrant == NULL) {
+                        printf("Point: (%lf, %lf)\n", point->x, point->y);
+                        printf("Boundaries: NW (%lf, %lf),  SE (%lf, %lf)\n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
+printf("NW bounds: (%lf, %lf) (%lf, %lf)\n", root->nw->bounds->nw->x,root->nw->bounds->nw->y,root->nw->bounds->se->x,root->nw->bounds->se->y);
+printf("NE bounds: (%lf, %lf) (%lf, %lf)\n", root->ne->bounds->nw->x,root->ne->bounds->nw->y,root->ne->bounds->se->x,root->ne->bounds->se->y);
+printf("SW bounds: (%lf, %lf) (%lf, %lf)\n", root->sw->bounds->nw->x,root->sw->bounds->nw->y,root->sw->bounds->se->x,root->sw->bounds->se->y);
+printf("SE bounds: (%lf, %lf) (%lf, %lf)\n", root->se->bounds->nw->x,root->se->bounds->nw->y,root->se->bounds->se->x,root->se->bounds->se->y);
+                        return 0;
+                }
+                return insert_(tree, quadrant, point, key, node_p);
         }
         return 0;
 }
@@ -375,19 +548,19 @@ quadtree_node_list_add(quadtree_node_list_t **list_p, quadtree_node_t *node)
 }
 
 int
-quadtree_insert(quadtree_t *tree, double x, double y, void *key) {
+quadtree_insert(quadtree_t *tree, double x, double y, void *key, quadtree_node_t **node_p) {
         quadtree_point_t *point;
         int insert_status;
 
-        if(!(point = quadtree_point_new(x, y))) return 0;
+        if(!(point = quadtree_point_new(x, y))) return -1;
         if(!node_contains_(tree->root, point)){
                 quadtree_point_free(point);
-                return 0;
+                return -2;
         }
 
-        if(!(insert_status = insert_(tree, tree->root, point, key))){
+        if(!(insert_status = insert_(tree, tree->root, point, key, node_p))){
                 quadtree_point_free(point);
-                return 0;
+                return -3;
         }
         if (insert_status == 1) tree->length++;
         return insert_status;
@@ -484,35 +657,120 @@ quadtree_walk(quadtree_node_t *root, void (*descent)(quadtree_node_t *node),
         (*ascent)(root);
 }
 
+/* Call this on a leaf.
+ * Assumes all siblings are empty. */
 static void
-condense_parent(quadtree_node_t *parent)
+condense_(quadtree_t *tree, quadtree_node_t *node)
 {
-        if (parent == NULL)
+        assert(!quadtree_node_ispointer(node));
+        int cleanup_cnt = 0;
+        quadtree_node_t *parent = node->parent;
+        quadtree_node_t *gparent = parent->parent;
+
+        assert(bounds_contains_bounds_(node->bounds, parent->bounds));
+
+        if (parent->nw != node) {
+                assert(quadtree_node_isempty(parent->nw));
+        } else {
+                parent->nw = NULL;
+        }
+        if (parent->ne != node) {
+                assert(quadtree_node_isempty(parent->ne));
+        } else {
+                parent->ne = NULL;
+        }
+        if (parent->sw != node) {
+                assert(quadtree_node_isempty(parent->sw));
+        } else {
+                parent->sw = NULL;
+        }
+        if (parent->se != node) {
+                assert(quadtree_node_isempty(parent->se));
+        } else {
+                parent->se = NULL;
+        }
+
+        node->coord = parent->coord;
+
+        switch(parent->coord) {
+        case NW:
+                gparent->nw = node;
+                break;
+        case NE:
+                gparent->ne = node;
+                break;
+        case SW:
+                gparent->sw = node;
+                break;
+        case SE:
+                gparent->se = node;
+                break;
+        case NO_COORDINATE:
+                break;
+        default:
+                printf("Whose demon node is this?\n");
+                assert(0);
+        }
+
+        /* Swap bounds */
+        quadtree_bounds_t *tmp = node->bounds;
+        node->bounds = parent->bounds;
+        parent->bounds = tmp;
+
+        quadtree_node_free(parent, elision_);
+
+        node->parent = gparent;
+        node->nw = NULL;
+        node->ne = NULL;
+        node->sw = NULL;
+        node->se = NULL;
+
+        if (gparent == NULL) {
+                tree->root = node;
+        } else if (gparent->children_cnt == 1) {
+                condense_parent(tree, gparent);
+        }
+}
+
+
+static void
+condense_parent(quadtree_t *tree,quadtree_node_t *parent)
+{
+        if (parent == NULL) //|| parent->parent == NULL || parent->parent->parent == NULL)
                 return;
 
         quadtree_node_t *last_child = NULL;
         /* Parent replaces last child. */
-        if (quadtree_node_isleaf(parent->nw)) last_child = parent->nw;
-        if (quadtree_node_isleaf(parent->ne)) last_child = parent->ne;
-        if (quadtree_node_isleaf(parent->sw)) last_child = parent->sw;
-        if (quadtree_node_isleaf(parent->se)) last_child = parent->se;
+        if (!quadtree_node_isempty(parent->nw)) last_child = parent->nw;
+        if (!quadtree_node_isempty(parent->ne)) last_child = parent->ne;
+        if (!quadtree_node_isempty(parent->sw)) last_child = parent->sw;
+        if (!quadtree_node_isempty(parent->se)) last_child = parent->se;
         assert(last_child != NULL);
-        parent->point = last_child->point;
-        parent->key = last_child->key;
-
-        parent->children_cnt = 0;
-        free(parent->nw);
-        free(parent->ne);
-        free(parent->sw);
-        free(parent->se);
-        parent->nw = NULL;
-        parent->ne = NULL;
-        parent->sw = NULL;
-        parent->se = NULL;
-
-        if (parent->parent != NULL && parent->parent->children_cnt == 1) {
-                condense_parent(parent->parent);
+        if (quadtree_node_ispointer(last_child)) {
+                return;
         }
+
+        condense_(tree, last_child);
+
+
+        /* WORKS */
+        /* parent->point = last_child->point; */
+        /* parent->key = last_child->key; */
+
+        /* parent->children_cnt = 0; */
+        /* free(parent->nw); */
+        /* free(parent->ne); */
+        /* free(parent->sw); */
+        /* free(parent->se); */
+        /* parent->nw = NULL; */
+        /* parent->ne = NULL; */
+        /* parent->sw = NULL; */
+        /* parent->se = NULL; */
+
+        /* DOES NOT NECESSARILY WORK */
+        /* if (parent->parent != NULL && parent->parent->children_cnt == 1) { */
+        /*         condense_parent(parent->parent); */
+        /* } */
 }
 
 /*
@@ -526,24 +784,55 @@ quadtree_clear_leaf(quadtree_node_t *node)
         free(node->point);
         node->point = NULL;
         node->key = NULL;
+
+        return key;
+}
+/*
+ * Reset a leaf node into an empty node.
+ * Returns key.
+ */
+void *
+quadtree_clear_leaf_with_condense(quadtree_t *tree, quadtree_node_t *node)
+{
+        void *key = node->key;
+        free(node->point);
+        node->point = NULL;
+        node->key = NULL;
         if (node->parent != NULL) {
                 dec_parent_cnt(node);
                 if (node->parent->children_cnt == 1) {
-                        condense_parent(node->parent);
+                        /* printf("Would have condensed parent, but did not\n"); */
+                        condense_parent(tree, node->parent);
                 }
         }
         return key;
 }
 
 int
-quadtree_move_leaf(quadtree_t *tree, quadtree_node_t *node, quadtree_point_t *point)
+quadtree_move_leaf(quadtree_t *tree, quadtree_node_t **node_p, quadtree_point_t *point)
 {
         void *key;
+        quadtree_node_t *node = *node_p;
 
-        if (!quadtree_node_isleaf(node)) {
-                return 0;
+        if (tree == NULL || node == NULL || point == NULL)
+                return -1;
+
+        if(!quadtree_node_isleaf(node)){
+                printf("\nOh nononononono\n");
+                quadtree_walk(tree->root, ascent_, descent_);
         }
-        key = quadtree_clear_leaf(node);
+
+        assert(quadtree_node_isleaf(node));
+
+        key = quadtree_clear_leaf_with_condense(tree,node);
+        //printf("\nAfter removing node---\n");
+        //quadtree_walk(tree->root, ascent_, descent_);
+
+        quadtree_walk(tree->root, ascent_, descent_);
+
         /* FIXME: For now, root of tree is starting point. Eventually should check parent first. */
-        return insert_(tree, tree->root, point, key);
+        int ret = quadtree_insert(tree, point->x, point->y, key, node_p);
+        printf("ret %d\n",ret);
+        return ret;
+        //return insert_(tree, tree->root, point, key);
 }

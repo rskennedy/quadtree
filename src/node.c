@@ -38,6 +38,7 @@ quadtree_node_new() {
         if(node == NULL) {
                 return NULL;
         }
+        node->coord  = NO_COORDINATE;
         node->parent = NULL;
         node->ne     = NULL;
         node->nw     = NULL;

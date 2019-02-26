@@ -14,7 +14,8 @@ typedef enum coordinate {
         NW,
         NE,
         SW,
-        SE
+        SE,
+        NO_COORDINATE,
 } coordinate_t;
 
 typedef struct quadtree_point {
@@ -95,8 +96,11 @@ quadtree_node_unlink(quadtree_node_t *node);
 void *
 quadtree_clear_leaf(quadtree_node_t *node);
 
+void *
+quadtree_clear_leaf_with_condense(quadtree_t *tree,quadtree_node_t *node);
+
 int
-quadtree_move_leaf(quadtree_t *tree, quadtree_node_t *node, quadtree_point_t *point);
+quadtree_move_leaf(quadtree_t *tree, quadtree_node_t **node, quadtree_point_t *point);
 
 quadtree_node_t*
 quadtree_node_with_bounds(double minx, double miny, double maxx, double maxy);
@@ -130,7 +134,7 @@ quadtree_node_list_t*
 quadtree_search_bounds_include_partial(quadtree_t *tree, double x, double y, double radius);
 
 int
-quadtree_insert(quadtree_t *tree, double x, double y, void *key);
+quadtree_insert(quadtree_t *tree, double x, double y, void *key, quadtree_node_t **node_p);
 
 void
 quadtree_walk(quadtree_node_t *root,

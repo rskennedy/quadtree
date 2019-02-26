@@ -2,7 +2,7 @@ CC ?= gcc
 AR ?= ar
 PREFIX = /usr/local
 
-FLAGS = -O3 -std=c99 -Wall -g -pedantic
+FLAGS = -O2 -std=c99 -Wall -g -pedantic
 
 SRC = src/point.c src/bounds.c src/node.c src/quadtree.c
 
