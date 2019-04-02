@@ -33,6 +33,7 @@ typedef struct quadtree_bounds {
 typedef struct quadtree_node {
         coordinate_t coord;
         unsigned int children_cnt;
+        unsigned int weight;
         struct quadtree_node *parent;
         struct quadtree_node *ne;
         struct quadtree_node *nw;
@@ -141,6 +142,9 @@ quadtree_walk(quadtree_node_t *root,
               void (*descent)(quadtree_node_t *node),
               void (*ascent)(quadtree_node_t *node));
 
+
+quadtree_node_t *
+quadtree_find_optimal_split_quad(quadtree_t *tree);
 
 #ifdef __cplusplus
 }

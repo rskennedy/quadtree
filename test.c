@@ -229,6 +229,32 @@ test_tree_condense_draw()
 }
 
 static void
+test_weight(){
+        int val = 10;
+        int val2 = 42;
+
+        quadtree_t *tree = quadtree_new(0, 0, 10, 10);
+        quadtree_node_t *node;
+
+        assert(quadtree_insert(tree, 4, 4, &val, &node) == 1);
+        assert(quadtree_insert(tree, 3, 4, &val2, &node) == 1);
+
+        /* Move from SW to NW */
+        assert(quadtree_move_leaf(tree, &node, quadtree_point_new(3, 8)) == 1);
+
+        assert(quadtree_insert(tree, 1, 1, &val, &node) == 1);
+        assert(quadtree_insert(tree, 6, 0, &val, &node) == 1);
+        assert(quadtree_insert(tree, 4, 6, &val, &node) == 1);
+        assert(quadtree_insert(tree, 2.1, 2, &val, &node) == 1);
+        assert(quadtree_insert(tree, 1, 1.2, &val, &node) == 1);
+        assert(quadtree_insert(tree, 1, 1.5, &val, &node) == 1);
+
+        node = quadtree_find_optimal_split_quad(tree);
+
+        quadtree_free(tree);
+}
+
+static void
 test_tree(){
         int val = 10;
 
@@ -419,22 +445,62 @@ test_rand_tree(){
         quadtree_free(tree);
 }
 
+static void
+test_leaf_move_stable(void)
+{
+        int val = 10;
+        int i;
+        size_t test_size = 1000;
+        quadtree_node_t *nodes[test_size];
+        quadtree_t *tree = quadtree_new(0, 0, test_size, test_size);
+
+        for (size_t i = 0; i < test_size; i++) {
+                quadtree_insert(tree, i, i, &val, &nodes[i]);
+        }
+
+        for (size_t i = 0; i < test_size; i++) {
+                quadtree_point_t point = {test_size - i, i};
+                quadtree_move_leaf(tree, &nodes[i], &point);
+        }
+
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
+        for (size_t i = 0; i < test_size; i++) {
+                assert(quadtree_node_isleaf(nodes[i]));
+        }
+
+        for (size_t i = 0; i < test_size; i++) {
+                quadtree_point_t point = {i, test_size};
+                quadtree_move_leaf(tree, &nodes[i], &point);
+        }
+
+        printf("\nBEFORE---\n");
+        quadtree_walk(tree->root, ascent_draw, descent_draw);
+
+        for (size_t i = 0; i < test_size; i++) {
+                assert(quadtree_node_isleaf(nodes[i]));
+        }
+}
+
 
 int
 main(int argc, const char *argv[]){
-        printf("\nquadtree_t: %ld\n", sizeof(quadtree_t));
-        printf("quadtree_node_t: %ld\n", sizeof(quadtree_node_t));
-        printf("quadtree_bounds_t: %ld\n", sizeof(quadtree_bounds_t));
-        printf("quadtree_point_t: %ld\n", sizeof(quadtree_point_t));
-        test(tree);
-        test(node);
-        test(bounds);
-        test(points);
-        test(tree_condense);
-        test(partial_coverage);
-        test(tree_condense_draw);
-        test(leaf_move);
+        /* printf("\nquadtree_t: %ld\n", sizeof(quadtree_t)); */
+        /* printf("quadtree_node_t: %ld\n", sizeof(quadtree_node_t)); */
+        /* printf("quadtree_bounds_t: %ld\n", sizeof(quadtree_bounds_t)); */
+        /* printf("quadtree_point_t: %ld\n", sizeof(quadtree_point_t)); */
+        /* test(tree); */
+        /* test(node); */
+        /* test(bounds); */
+        /* test(points); */
+        /* test(tree_condense); */
+        /* test(partial_coverage); */
+        /* test(tree_condense_draw); */
+        //test(leaf_move);
 
-        test(rand_tree);
-        test(leaf_move_complex);
+        test(weight);
+
+        /* test(rand_tree); */
+        /* test(leaf_move_complex); */
+        //test(leaf_move_stable);
 }

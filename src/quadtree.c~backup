@@ -205,10 +205,6 @@ swap_children_count(quadtree_node_t *node, quadtree_node_t *new_node)
         unsigned int tmp = node->children_cnt;
         node->children_cnt = new_node->children_cnt;
         new_node->children_cnt = tmp;
-
-        tmp = node->weight;
-        node->weight = new_node->weight;
-        new_node->weight = tmp;
 }
 
 static inline void
@@ -281,7 +277,6 @@ split_node_(quadtree_t *tree, quadtree_node_t *node, quadtree_node_t **fill_this
 
         old = node->point;
         key   = node->key;
-        node->weight = 1;
         node->point = NULL;
         node->key   = NULL;
 
@@ -454,14 +449,6 @@ dec_parent_cnt(quadtree_node_t *node)
 {
         assert(node->parent->children_cnt != 0);
         node->parent->children_cnt -= 1;
-
-        if (quadtree_node_isleaf(node)) {
-                quadtree_node_t *child = node;
-                while (child->parent != NULL) {
-                        child->parent->weight--;
-                        child = child->parent;
-                }
-        } 
 }
 
 /* cribbed from the google closure library. */
@@ -473,11 +460,8 @@ insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *
                 if (root->parent != NULL) {
                         inc_parent_cnt(root);
                 }
-                if (node_p != NULL) {
+                if (node_p != NULL)
                         *node_p = root;
-                
-                }
-
                 return 1; /* normal insertion flag */
         } else if(quadtree_node_isleaf(root)){
                 quadtree_node_t *fill_this_in = NULL;
@@ -493,7 +477,6 @@ insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *
                                 printf("Failed to split node\n");
                                 return 0; /* failed insertion flag */
                         }
-
                         return insert_(tree, fill_this_in, point, key, node_p);
                 }
         } else if(quadtree_node_ispointer(root)){
@@ -501,10 +484,10 @@ insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *
                 if (quadrant == NULL) {
                         printf("Point: (%lf, %lf)\n", point->x, point->y);
                         printf("Boundaries: NW (%lf, %lf),  SE (%lf, %lf)\n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
-                        printf("NW bounds: (%lf, %lf) (%lf, %lf)\n", root->nw->bounds->nw->x,root->nw->bounds->nw->y,root->nw->bounds->se->x,root->nw->bounds->se->y);
-                        printf("NE bounds: (%lf, %lf) (%lf, %lf)\n", root->ne->bounds->nw->x,root->ne->bounds->nw->y,root->ne->bounds->se->x,root->ne->bounds->se->y);
-                        printf("SW bounds: (%lf, %lf) (%lf, %lf)\n", root->sw->bounds->nw->x,root->sw->bounds->nw->y,root->sw->bounds->se->x,root->sw->bounds->se->y);
-                        printf("SE bounds: (%lf, %lf) (%lf, %lf)\n", root->se->bounds->nw->x,root->se->bounds->nw->y,root->se->bounds->se->x,root->se->bounds->se->y);
+printf("NW bounds: (%lf, %lf) (%lf, %lf)\n", root->nw->bounds->nw->x,root->nw->bounds->nw->y,root->nw->bounds->se->x,root->nw->bounds->se->y);
+printf("NE bounds: (%lf, %lf) (%lf, %lf)\n", root->ne->bounds->nw->x,root->ne->bounds->nw->y,root->ne->bounds->se->x,root->ne->bounds->se->y);
+printf("SW bounds: (%lf, %lf) (%lf, %lf)\n", root->sw->bounds->nw->x,root->sw->bounds->nw->y,root->sw->bounds->se->x,root->sw->bounds->se->y);
+printf("SE bounds: (%lf, %lf) (%lf, %lf)\n", root->se->bounds->nw->x,root->se->bounds->nw->y,root->se->bounds->se->x,root->se->bounds->se->y);
                         return 0;
                 }
                 return insert_(tree, quadrant, point, key, node_p);
@@ -579,15 +562,7 @@ quadtree_insert(quadtree_t *tree, double x, double y, void *key, quadtree_node_t
                 quadtree_point_free(point);
                 return -3;
         }
-        if (insert_status == 1) {
-                tree->length++;
-                quadtree_node_t *child = *node_p;
-                while (child->parent != NULL) {
-                        child->parent->weight++;
-                        child = child->parent;
-                }
-        }
- 
+        if (insert_status == 1) tree->length++;
         return insert_status;
 }
 
@@ -688,7 +663,7 @@ static void
 condense_(quadtree_t *tree, quadtree_node_t *node)
 {
         assert(!quadtree_node_ispointer(node));
-        //int cleanup_cnt = 0;
+        int cleanup_cnt = 0;
         quadtree_node_t *parent = node->parent;
         quadtree_node_t *gparent = parent->parent;
 
@@ -844,45 +819,22 @@ quadtree_move_leaf(quadtree_t *tree, quadtree_node_t **node_p, quadtree_point_t 
 
         if(!quadtree_node_isleaf(node)){
                 printf("\nOh nononononono\n");
-                //quadtree_walk(tree->root, ascent_, descent_);
+                quadtree_walk(tree->root, ascent_, descent_);
         }
 
         assert(quadtree_node_isleaf(node));
 
         key = quadtree_clear_leaf_with_condense(tree,node);
+
+        assert(quadtree_node_isleaf(node));
         //printf("\nAfter removing node---\n");
         //quadtree_walk(tree->root, ascent_, descent_);
 
-        /* quadtree_walk(tree->root, ascent_, descent_); */
+        //quadtree_walk(tree->root, ascent_, descent_);
 
         /* FIXME: For now, root of tree is starting point. Eventually should check parent first. */
         int ret = quadtree_insert(tree, point->x, point->y, key, node_p);
+        //printf("ret %d\n",ret);
         return ret;
         //return insert_(tree, tree->root, point, key);
-}
-
-quadtree_node_t *
-quadtree_find_max_weight_child(quadtree_node_t *node) {
-        quadtree_node_t *max_child = node->nw;
-        if (node->ne->weight > max_child->weight)
-                max_child = node->ne;
-        if (node->sw->weight > max_child->weight)
-                max_child = node->sw;
-        if (node->se->weight > max_child->weight)
-                max_child = node->se;
-        return max_child;
-} 
-
-
-quadtree_node_t *
-quadtree_find_optimal_split_quad(quadtree_t *tree) {
-        double optimal_weight_ratio = 0.5;
-        quadtree_node_t *current;
-
-        // Quad where child_weight / tree->root->weight ~= optimal_weight
-
-        while ((double)current->weight / tree->root->weight > optimal_weight_ratio) {
-                current = quadtree_find_max_weight_child(current);
-        }
-        return current;
 }

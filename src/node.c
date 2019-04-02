@@ -48,6 +48,7 @@ quadtree_node_new() {
         node->bounds = NULL;
         node->key    = NULL;
         node->children_cnt = 0;
+        node->weight = 0;
         return node;
 }
 
