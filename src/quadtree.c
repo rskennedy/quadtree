@@ -456,12 +456,11 @@ dec_parent_cnt(quadtree_node_t *node)
         node->parent->children_cnt -= 1;
 
         if (quadtree_node_isleaf(node)) {
-                quadtree_node_t *child = node;
-                while (child->parent != NULL) {
-                        child->parent->weight--;
-                        child = child->parent;
+                while (node->parent != NULL) {
+                        node->parent->weight--;
+                        node = node->parent;
                 }
-        } 
+        }
 }
 
 /* cribbed from the google closure library. */
@@ -569,6 +568,12 @@ quadtree_insert(quadtree_t *tree, double x, double y, void *key, quadtree_node_t
         quadtree_point_t *point;
         int insert_status;
 
+        /* backup container for node pointer if user doesn't provide one */
+        quadtree_node_t *node;
+        if (node_p == NULL) {
+                node_p = &node;
+        }
+
         if(!(point = quadtree_point_new(x, y))) return -1;
         if(!node_contains_(tree->root, point)){
                 quadtree_point_free(point);
@@ -587,7 +592,7 @@ quadtree_insert(quadtree_t *tree, double x, double y, void *key, quadtree_node_t
                         child = child->parent;
                 }
         }
- 
+
         return insert_status;
 }
 

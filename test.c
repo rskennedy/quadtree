@@ -9,10 +9,23 @@
         test_##fn(); \
         puts("\x1b[1;32m ✓ \x1b[0m");
 
+#define QUOTE(x) #x
+#define STR(x) QUOTE(x)
+
+#define ASSERT_VERBOSE(cond, tree)                                    \
+        do {                                                          \
+                if (!(cond)) {                                        \
+                        printf("Failed test: %s.                      \n", STR(cond)); \
+                        printf("Walking tree...                       \n");            \
+                        quadtree_walk((tree)->root, ascent, descent); \
+                        exit(EXIT_FAILURE);                           \ 
+                }                                                     \
+        } while(0);                                                   \
+
         void
 print_node(quadtree_node_t *node)
 {
-        printf("(%lf, %lf)\n", node->point->x, node->point->y);
+        printf("(%lf, %lf)                                   \n", node->point->x, node->point->y);
 }
 
 void descent(quadtree_node_t *node){
@@ -226,6 +239,49 @@ test_tree_condense_draw()
         quadtree_clear_leaf(quadtree_node_search(tree, 1.0, 2.0));
         quadtree_clear_leaf(quadtree_node_search(tree, 2.0, 2.0));
         quadtree_walk(tree->root, ascent_draw, descent_draw);
+}
+
+static void
+transfer_node(quadtree_t *from, quadtree_t *to, quadtree_point_t *old_point, quadtree_point_t *new_point)
+{
+        quadtree_node_t *move_this_node = quadtree_node_search(from, old_point->x, old_point->y);
+        ASSERT_VERBOSE(move_this_node != NULL, from);
+        void *val = quadtree_clear_leaf_with_condense(from, move_this_node);
+        quadtree_insert(to, new_point->x, new_point->y, val, NULL);
+}
+
+static void
+test_multiple_trees_transfer() {
+        /* Tree A is responsible for left half and B for right half */
+        quadtree_t *tree_A = quadtree_new(0, 0, 10, 10);
+        quadtree_t *tree_B = quadtree_new(0, 0, 10, 10);
+        const size_t total_nodes = 1000;
+        quadtree_point_t points[total_nodes];
+
+        const int val = 12;
+
+        for (size_t i = 0; i < total_nodes; i++) {
+                points[i].x = (double) ((double)rand()/RAND_MAX*10.0);
+                points[i].y = (double) ((double)rand()/RAND_MAX*10.0);
+                if (points[i].x <= 5)
+                        quadtree_insert(tree_A, points[i].x, points[i].y, &val, NULL);
+                else
+                        quadtree_insert(tree_B, points[i].x, points[i].y, &val, NULL);
+        }
+
+        for (size_t i = 0; i < total_nodes; i++) {
+                quadtree_point_t old_point = {points[i].x, points[i].y};
+
+                points[i].y = (double) ((double)rand()/RAND_MAX*10.0);
+                if (points[i].x <= 5) {
+                        points[i].x = (double) (5.0 + (double)rand()/RAND_MAX*5.0);
+                        transfer_node(tree_A, tree_B, &old_point, &points[i]);
+                }
+                else {
+                        points[i].x = (double) ((double)rand()/RAND_MAX*5.0);
+                        transfer_node(tree_B, tree_A, &old_point, &points[i]);
+                }
+        }
 }
 
 static void
@@ -448,7 +504,7 @@ test_rand_tree(){
 static void
 test_leaf_move_stable(void)
 {
-        int val = 10;
+        int val          = 10;
         int i;
         size_t test_size = 1000;
         quadtree_node_t *nodes[test_size];
@@ -499,6 +555,7 @@ main(int argc, const char *argv[]){
         //test(leaf_move);
 
         test(weight);
+        test(multiple_trees_transfer);
 
         /* test(rand_tree); */
         /* test(leaf_move_complex); */
