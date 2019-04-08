@@ -34,7 +34,7 @@ quadtree_node_reset(quadtree_node_t* node, void (*key_free)(void*)) {
 /* api */
 quadtree_node_t*
 quadtree_node_new() {
-        quadtree_node_t *node = malloc(sizeof(quadtree_node_t));
+        quadtree_node_t *node = rte_malloc("node", sizeof(quadtree_node_t), 0);
         if(node == NULL) {
                 return NULL;
         }
@@ -71,5 +71,5 @@ quadtree_node_free(quadtree_node_t* node, void (*key_free)(void*)) {
 
         quadtree_bounds_free(node->bounds);
         quadtree_node_reset(node, key_free);
-        free(node);
+        rte_free(node);
 }

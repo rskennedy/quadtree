@@ -235,7 +235,7 @@ swap_node_details(quadtree_t *tree, quadtree_node_t *node, quadtree_node_t *new_
 {
         /* swap parents first */
         swap_parents(tree, node, new_node);
-        
+
         swap_coordinates(node, new_node);
         swap_points(node, new_node);
         swap_bounds(node, new_node);
@@ -454,7 +454,12 @@ dec_parent_cnt(quadtree_node_t *node)
 {
         assert(node->parent->children_cnt != 0);
         node->parent->children_cnt -= 1;
+}
 
+static void
+dec_parent_cnt_with_weight(quadtree_node_t *node)
+{
+        dec_parent_cnt(node);
         if (quadtree_node_isleaf(node)) {
                 while (node->parent != NULL) {
                         node->parent->weight--;
@@ -474,7 +479,6 @@ insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *
                 }
                 if (node_p != NULL) {
                         *node_p = root;
-                
                 }
 
                 return 1; /* normal insertion flag */
@@ -516,7 +520,7 @@ insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *
 quadtree_t*
 quadtree_new(double minx, double miny, double maxx, double maxy) {
         quadtree_t *tree;
-        if(!(tree = malloc(sizeof(*tree))))
+        if(!(tree = rte_malloc("tree",sizeof(*tree),0)))
                 return NULL;
         tree->root = quadtree_node_with_bounds(minx, miny, maxx, maxy);
         if(!(tree->root))
@@ -529,7 +533,7 @@ quadtree_new(double minx, double miny, double maxx, double maxy) {
 /* public */
 quadtree_node_list_t*
 quadtree_node_list_new(quadtree_node_t *node) {
-        quadtree_node_list_t *new = malloc(sizeof(quadtree_node_list_t));
+        quadtree_node_list_t *new = rte_malloc("list",sizeof(quadtree_node_list_t),0);
         if (new == NULL) {
                 return NULL;
         }
@@ -550,7 +554,7 @@ quadtree_node_list_free(quadtree_node_list_t *list)
 
         while (curr != NULL) {
                 next = curr->next;
-                free(curr);
+                rte_free(curr);
                 curr = next;
         }
 }
@@ -673,7 +677,7 @@ quadtree_free(quadtree_t *tree) {
         } else {
                 quadtree_node_free(tree->root, elision_);
         }
-        free(tree);
+        rte_free(tree);
 }
 
 void
@@ -811,7 +815,7 @@ void *
 quadtree_clear_leaf(quadtree_node_t *node)
 {
         void *key = node->key;
-        free(node->point);
+        rte_free(node->point);
         node->point = NULL;
         node->key = NULL;
 
@@ -825,17 +829,99 @@ void *
 quadtree_clear_leaf_with_condense(quadtree_t *tree, quadtree_node_t *node)
 {
         void *key = node->key;
-        free(node->point);
+        rte_free(node->point);
         node->point = NULL;
         node->key = NULL;
         if (node->parent != NULL) {
-                dec_parent_cnt(node);
+                dec_parent_cnt_with_weight(node);
                 if (node->parent->children_cnt == 1) {
                         /* printf("Would have condensed parent, but did not\n"); */
                         condense_parent(tree, node->parent);
                 }
         }
         return key;
+}
+
+void
+recalc_weight(quadtree_node_t *node, unsigned int weight_diff)
+{
+        while (node->parent != NULL) {
+                node->parent->weight -= weight_diff;
+                node = node->parent;
+        }
+}
+
+/*
+ * Cuts out subtree and recalcs the weight of the ancestor nodes.
+ * Don't call this on root.
+ */
+void
+quadtree_unlink_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_root)
+{
+        assert(subtree_root->parent != NULL);
+
+        unsigned int weight_diff = subtree_root->weight;
+
+        quadtree_node_t *filler_node = quadtree_node_new();
+        filler_node->parent          = subtree_root->parent;
+        filler_node->coord           = subtree_root->coord;
+        assert(quadtree_node_isempty(filler_node));
+
+        switch(subtree_root->coord) {
+                case NW:
+                        subtree_root->parent->nw = filler_node;
+                        break;
+                case NE:
+                        subtree_root->parent->ne = filler_node;
+                        break;
+                case SW:
+                        subtree_root->parent->sw = filler_node;
+                        break;
+                case SE:
+                        subtree_root->parent->se = filler_node;
+                        break;
+                default:
+                        printf("UGHGHGHG\n");
+                        break;
+        }
+
+        subtree_root->parent         = NULL;
+
+        dec_parent_cnt(filler_node);
+        recalc_weight(filler_node, weight_diff);
+        if (filler_node->parent->children_cnt == 1) {
+                condense_parent(destination_tree, filler_node->parent);
+        }
+}
+
+int quadtree_insert_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_root)
+{
+        quadtree_node_list_t *list;
+        /* extract_all_(subtree_root, &list); */
+        search_bounds_(subtree_root, subtree_root->bounds, &list);
+        for (; list; list = list->next) {
+                if (list->node->point == NULL) {
+                        printf("This shouldnt hapepn the list thingy is null\n");
+                        continue;
+                }
+                quadtree_insert(destination_tree, list->node->point->x, list->node->point->y, list->node->key, NULL);
+        }
+        quadtree_node_free(subtree_root, rte_free);
+        quadtree_node_list_free(list);
+        return 0;
+}
+
+int
+quadtree_move_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_root)
+{
+        /* TODO: Pay attention to the ordering */
+
+        /* Clear and condense without destroying subtree root */
+        /* recalculate weight */
+        quadtree_unlink_subtree(destination_tree, subtree_root);
+        quadtree_insert_subtree(destination_tree, subtree_root);
+
+        return 0;
 }
 
 int
@@ -876,7 +962,7 @@ quadtree_find_max_weight_child(quadtree_node_t *node) {
         if (node->se->weight > max_child->weight)
                 max_child = node->se;
         return max_child;
-} 
+}
 
 
 quadtree_node_t *
@@ -886,6 +972,7 @@ quadtree_find_optimal_split_quad(quadtree_t *tree) {
 
         // Quad where child_weight / tree->root->weight ~= optimal_weight
 
+        current = tree->root;
         while ((double)current->weight / tree->root->weight > optimal_weight_ratio) {
                 current = quadtree_find_max_weight_child(current);
         }

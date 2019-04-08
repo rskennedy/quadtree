@@ -32,6 +32,8 @@ void descent(quadtree_node_t *node){
         if(node->bounds != NULL)
                 printf("{ nw.x:%f, nw.y:%f, se.x:%f, se.y:%f }: ", node->bounds->nw->x,
                                 node->bounds->nw->y, node->bounds->se->x, node->bounds->se->y);
+        if (node->point != NULL)
+                printf("%f:%f\n", node->point->x, node->point->y);
 }
 
 void ascent(quadtree_node_t *node){
@@ -57,7 +59,7 @@ test_node(){
         assert(!quadtree_node_isleaf(node));
         assert(quadtree_node_isempty(node));
         assert(!quadtree_node_ispointer(node));
-        free(node);
+        rte_free(node);
 }
 
 static void
@@ -283,6 +285,40 @@ test_multiple_trees_transfer() {
                 }
         }
 }
+
+static void
+test_subtree_transfer() {
+        /* Tree A is responsible for left half and B for right half */
+        quadtree_t *tree_A = quadtree_new(0, 0, 10, 10);
+        quadtree_t *tree_B = quadtree_new(0, 0, 10, 10);
+        const size_t total_nodes = 10;
+        quadtree_point_t points[total_nodes];
+
+        for (size_t i = 0; i < total_nodes; i++) {
+                points[i].x = (double) ((double)rand()/RAND_MAX*10.0);
+                points[i].y = (double) ((double)rand()/RAND_MAX*10.0);
+                if (points[i].x <= 5)
+                        quadtree_insert(tree_A, points[i].x, points[i].y, NULL, NULL);
+                else
+                        quadtree_insert(tree_B, points[i].x, points[i].y, NULL, NULL);
+        }
+
+        printf("BEFORE ______\n");
+        printf("TREE A\n");
+        quadtree_walk(tree_A->root, descent, ascent);
+        printf("TREE B\n");
+        quadtree_walk(tree_B->root, descent, ascent);
+        printf("\n");
+        printf("AFTER-=--==\n");
+        printf("\n");
+        quadtree_move_subtree(tree_B, quadtree_find_optimal_split_quad(tree_A));;
+        printf("TREE A\n");
+        quadtree_walk(tree_A->root, descent, ascent);
+        printf("TREE B\n");
+        quadtree_walk(tree_B->root, descent, ascent);
+}
+
+
 
 static void
 test_weight(){
@@ -556,6 +592,7 @@ main(int argc, const char *argv[]){
 
         test(weight);
         test(multiple_trees_transfer);
+        test(subtree_transfer);
 
         /* test(rand_tree); */
         /* test(leaf_move_complex); */

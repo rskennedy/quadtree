@@ -25,14 +25,14 @@ void
 quadtree_bounds_free(quadtree_bounds_t *bounds){
         quadtree_point_free(bounds->nw);
         quadtree_point_free(bounds->se);
-        free(bounds);
+        rte_free(bounds);
 }
 
 
 quadtree_bounds_t*
 quadtree_bounds_new(){
         quadtree_bounds_t *bounds;
-        if((bounds = malloc(sizeof(*bounds))) == NULL)
+        if((bounds = rte_malloc("bounds", sizeof(*bounds),0)) == NULL)
                 return NULL;
         bounds->nw     = quadtree_point_new(INFINITY, -INFINITY);
         bounds->se     = quadtree_point_new(-INFINITY, INFINITY);
