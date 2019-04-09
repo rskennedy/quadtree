@@ -290,32 +290,24 @@ static void
 test_subtree_transfer() {
         /* Tree A is responsible for left half and B for right half */
         quadtree_t *tree_A = quadtree_new(0, 0, 10, 10);
-        quadtree_t *tree_B = quadtree_new(0, 0, 10, 10);
-        const size_t total_nodes = 10;
+        const size_t total_nodes = 1000;
         quadtree_point_t points[total_nodes];
 
         for (size_t i = 0; i < total_nodes; i++) {
                 points[i].x = (double) ((double)rand()/RAND_MAX*10.0);
                 points[i].y = (double) ((double)rand()/RAND_MAX*10.0);
-                if (points[i].x <= 5)
-                        quadtree_insert(tree_A, points[i].x, points[i].y, NULL, NULL);
-                else
-                        quadtree_insert(tree_B, points[i].x, points[i].y, NULL, NULL);
+                quadtree_insert(tree_A, points[i].x, points[i].y, NULL, NULL);
         }
 
-        printf("BEFORE ______\n");
-        printf("TREE A\n");
-        quadtree_walk(tree_A->root, descent, ascent);
-        printf("TREE B\n");
-        quadtree_walk(tree_B->root, descent, ascent);
-        printf("\n");
-        printf("AFTER-=--==\n");
-        printf("\n");
-        quadtree_move_subtree(tree_B, quadtree_find_optimal_split_quad(tree_A));;
-        printf("TREE A\n");
-        quadtree_walk(tree_A->root, descent, ascent);
-        printf("TREE B\n");
-        quadtree_walk(tree_B->root, descent, ascent);
+        quadtree_node_t *optimal_node = quadtree_find_optimal_split_quad(tree_A);
+        quadtree_t *tree_B = quadtree_new(optimal_node->bounds->nw->x,
+                        optimal_node->bounds->se->y,
+                        optimal_node->bounds->se->x,
+                        optimal_node->bounds->nw->y);
+
+        assert(tree_A->root->weight + tree_B->root->weight == total_nodes);
+        assert(tree_A->root->weight == tree_A->length);
+        assert(tree_B->root->weight == tree_B->length);
 }
 
 

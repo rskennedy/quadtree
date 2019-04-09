@@ -839,6 +839,7 @@ quadtree_clear_leaf_with_condense(quadtree_t *tree, quadtree_node_t *node)
                         condense_parent(tree, node->parent);
                 }
         }
+        tree->length--;
         return key;
 }
 
@@ -886,6 +887,7 @@ quadtree_unlink_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_r
         }
 
         subtree_root->parent         = NULL;
+        subtree_root->coord = NO_COORDINATE;
 
         dec_parent_cnt(filler_node);
         recalc_weight(filler_node, weight_diff);
@@ -894,34 +896,11 @@ quadtree_unlink_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_r
         }
 }
 
-int quadtree_insert_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_root)
-{
-        quadtree_node_list_t *list;
-        /* extract_all_(subtree_root, &list); */
-        search_bounds_(subtree_root, subtree_root->bounds, &list);
-        for (; list; list = list->next) {
-                if (list->node->point == NULL) {
-                        printf("This shouldnt hapepn the list thingy is null\n");
-                        continue;
-                }
-                quadtree_insert(destination_tree, list->node->point->x, list->node->point->y, list->node->key, NULL);
-        }
-        quadtree_node_free(subtree_root, rte_free);
-        quadtree_node_list_free(list);
-        return 0;
-}
-
-int
+void
 quadtree_move_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_root)
 {
-        /* TODO: Pay attention to the ordering */
-
-        /* Clear and condense without destroying subtree root */
-        /* recalculate weight */
         quadtree_unlink_subtree(destination_tree, subtree_root);
-        quadtree_insert_subtree(destination_tree, subtree_root);
-
-        return 0;
+        destination_tree->root = subtree_root;
 }
 
 int
