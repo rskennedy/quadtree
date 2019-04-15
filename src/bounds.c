@@ -25,18 +25,33 @@ void
 quadtree_bounds_free(quadtree_bounds_t *bounds){
         quadtree_point_free(bounds->nw);
         quadtree_point_free(bounds->se);
-        rte_free(bounds);
+        free(bounds);
+        //rte_free(bounds);
 }
 
 
 quadtree_bounds_t*
 quadtree_bounds_new(){
         quadtree_bounds_t *bounds;
-        if((bounds = rte_malloc("bounds", sizeof(*bounds),0)) == NULL)
+        if((bounds = malloc(sizeof(*bounds))) == NULL)
+        //if((bounds = rte_malloc("bounds", sizeof(*bounds),0)) == NULL)
                 return NULL;
         bounds->nw     = quadtree_point_new(INFINITY, -INFINITY);
         bounds->se     = quadtree_point_new(-INFINITY, INFINITY);
         bounds->width  = 0;
         bounds->height = 0;
+        return bounds;
+}
+
+quadtree_bounds_t*
+quadtree_bounds_new_with_points(double xmin, double ymin, double xmax, double ymax){
+        quadtree_bounds_t *bounds;
+        //if((bounds = rte_malloc("bounds", sizeof(*bounds),0)) == NULL)
+        if((bounds = malloc(sizeof(*bounds))) == NULL)
+                return NULL;
+        bounds->nw     = quadtree_point_new(xmin, ymax);
+        bounds->se     = quadtree_point_new(xmax, ymin);
+        bounds->width  = xmax - xmin;
+        bounds->height = ymax - ymin;
         return bounds;
 }

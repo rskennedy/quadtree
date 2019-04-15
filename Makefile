@@ -2,9 +2,11 @@ CC ?= gcc
 AR ?= ar
 PREFIX = /usr/local
 
-FLAGS = -O2 -std=c99 -Wall -g -pedantic -D_FAKE_MALLOC
+FLAGS = -O3 -std=c99 -Wall -g -pedantic 
+#FLAGS = -O0 -std=c99 -Wall -g -pedantic -D_FAKE_MALLOC
 
-SRC = src/point.c src/bounds.c src/node.c src/quadtree.c src/fake_malloc.c
+SRC = src/point.c src/bounds.c src/node.c src/quadtree.c 
+#SRC = src/point.c src/bounds.c src/node.c src/quadtree.c src/fake_malloc.c
 
 OBJ = $(SRC:.c=.o)
 

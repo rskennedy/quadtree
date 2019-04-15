@@ -520,7 +520,8 @@ insert_(quadtree_t* tree, quadtree_node_t *root, quadtree_point_t *point, void *
 quadtree_t*
 quadtree_new(double minx, double miny, double maxx, double maxy) {
         quadtree_t *tree;
-        if(!(tree = rte_malloc("tree",sizeof(*tree),0)))
+        if(!(tree = malloc(sizeof(*tree))))
+        //if(!(tree = rte_malloc("tree",sizeof(*tree),0)))
                 return NULL;
         tree->root = quadtree_node_with_bounds(minx, miny, maxx, maxy);
         if(!(tree->root))
@@ -533,7 +534,8 @@ quadtree_new(double minx, double miny, double maxx, double maxy) {
 /* public */
 quadtree_node_list_t*
 quadtree_node_list_new(quadtree_node_t *node) {
-        quadtree_node_list_t *new = rte_malloc("list",sizeof(quadtree_node_list_t),0);
+        quadtree_node_list_t *new = malloc(sizeof(quadtree_node_list_t));
+        //quadtree_node_list_t *new = rte_malloc("list",sizeof(quadtree_node_list_t),0);
         if (new == NULL) {
                 return NULL;
         }
@@ -554,7 +556,8 @@ quadtree_node_list_free(quadtree_node_list_t *list)
 
         while (curr != NULL) {
                 next = curr->next;
-                rte_free(curr);
+                free(curr);
+                //rte_free(curr);
                 curr = next;
         }
 }
@@ -677,7 +680,8 @@ quadtree_free(quadtree_t *tree) {
         } else {
                 quadtree_node_free(tree->root, elision_);
         }
-        rte_free(tree);
+        free(tree);
+        //rte_free(tree);
 }
 
 void
@@ -815,7 +819,8 @@ void *
 quadtree_clear_leaf(quadtree_node_t *node)
 {
         void *key = node->key;
-        rte_free(node->point);
+        free(node->point);
+        //rte_free(node->point);
         node->point = NULL;
         node->key = NULL;
 
@@ -829,7 +834,8 @@ void *
 quadtree_clear_leaf_with_condense(quadtree_t *tree, quadtree_node_t *node)
 {
         void *key = node->key;
-        rte_free(node->point);
+        free(node->point);
+        //rte_free(node->point);
         node->point = NULL;
         node->key = NULL;
         if (node->parent != NULL) {
@@ -906,6 +912,7 @@ quadtree_move_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_roo
 int
 quadtree_move_leaf(quadtree_t *tree, quadtree_node_t **node_p, quadtree_point_t *point)
 {
+        int ret;
         void *key;
         quadtree_node_t *node = *node_p;
 
@@ -919,14 +926,33 @@ quadtree_move_leaf(quadtree_t *tree, quadtree_node_t **node_p, quadtree_point_t 
 
         assert(quadtree_node_isleaf(node));
 
-        key = quadtree_clear_leaf_with_condense(tree,node);
         //printf("\nAfter removing node---\n");
         //quadtree_walk(tree->root, ascent_, descent_);
 
         /* quadtree_walk(tree->root, ascent_, descent_); */
+        if (node_contains_(node, point)) {
+                node->point->x = point->x;
+                node->point->y = point->y;
+                return 1;
+        } else if (node_contains_(node->parent, point)) {
+                /* FIXME: For now, root of tree is starting point. Eventually should check parent first. */
+                ret = quadtree_insert(tree, point->x, point->y, key, node_p);
+                if (ret != 1) {
+                        printf("Insert returned %d, what do?\n", ret);
+                        return ret;
+                }
+                key = quadtree_clear_leaf_with_condense(tree, node);
+        } else {
+                key = quadtree_clear_leaf_with_condense(tree, node);
+                /* FIXME: For now, root of tree is starting point. Eventually should check parent first. */
+                ret = quadtree_insert(tree, point->x, point->y, key, node_p);
+                if (ret != 1) {
+                        printf("Insert returned %d, what do?\n", ret);
+                        return ret;
+                }
+        }
 
-        /* FIXME: For now, root of tree is starting point. Eventually should check parent first. */
-        int ret = quadtree_insert(tree, point->x, point->y, key, node_p);
+        assert(quadtree_node_isleaf(*node_p));
         return ret;
         //return insert_(tree, tree->root, point, key);
 }

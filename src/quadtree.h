@@ -9,8 +9,7 @@ extern "C" {
 #include "fake_malloc.h"
 
 #else
-#include <rte_malloc.h>
-
+//#include <rte_malloc.h>
 #endif
 
 #define QUADTREE_VERSION "0.0.1"
@@ -73,6 +72,9 @@ quadtree_point_free(quadtree_point_t *point);
 
 quadtree_bounds_t*
 quadtree_bounds_new();
+
+quadtree_bounds_t*
+quadtree_bounds_new_with_points(double xmin, double ymin, double xmax, double ymax);
 
 void
 quadtree_bounds_extend(quadtree_bounds_t *bounds, double x, double y);

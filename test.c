@@ -59,7 +59,8 @@ test_node(){
         assert(!quadtree_node_isleaf(node));
         assert(quadtree_node_isempty(node));
         assert(!quadtree_node_ispointer(node));
-        rte_free(node);
+        free(node);
+        //rte_free(node);
 }
 
 static void
@@ -179,6 +180,7 @@ test_leaf_move_complex(void)
 {
         int val = 10;
         int i;
+        int ret;
         quadtree_t *tree = quadtree_new(0, 0, 10, 10);
 
         /* Ensure tree has two leaves where I expect them. */
@@ -195,23 +197,45 @@ test_leaf_move_complex(void)
         quadtree_node_t *node_the_node = quadtree_node_search(tree, 3.0, 8.0);
         quadtree_node_t *node_the_node2 = quadtree_node_search(tree, 8.0, 8.0);
 
+        const size_t total_nodes = 10000;
+        for (size_t i = 0; i < total_nodes; i++) {
+                double x = (double) ((double)rand()/RAND_MAX*10.0);
+                double y = (double) ((double)rand()/RAND_MAX*10.0);
+                quadtree_insert(tree, x, y, &val, NULL);
+        }
+
         assert(quadtree_node_isleaf(node_the_node));
         assert(quadtree_node_isleaf(node_the_node2));
 
         /* Ensure tree condensed into a leaf properly */
         quadtree_point_t *point = malloc(sizeof(quadtree_point_t));
+        quadtree_point_t *point2 = malloc(sizeof(quadtree_point_t));
         if (point == NULL) {
                 return;
         }
-        point->x = 2;
-        point->y = 2;
-        for (i = 0; i < 1000; i++) {
-                point->x += 0.0001;
-                printf("\nMoving point (%f, %f) to (%f, %f)\n", node_the_node->point->x, node_the_node->point->y, point->x, point->y);
-                assert(quadtree_move_leaf(tree, &node_the_node, point) == 1);
-                point->y -= 0.0001;
+        point->x = 5;
+        point->y = 5;
+        point2->x = 8.44;
+        point2->y = 2.4;
+        for (i = 0; i < 1000000; i++) {
+                if (point->x <=1 || point->x >=9)
+                        point->x = 2.51213;
+                if (point->y <=1 || point->y >=9)
+                        point->y = 8.2312;
+                point->x += 0.001;
+                point->y -= 0.001;
+                if (point2->x <=1 || point2->x >=9)
+                        point2->x = 2.213;
+                if (point2->y <=1 || point2->y >=9)
+                        point2->y = 7.2312;
+                point2->x += 0.001;
+                point2->y += 0.001;
+                //printf("\nMoving point (%f, %f) to (%f, %f)\n", node_the_node->point->x, node_the_node->point->y, point->x, point->y);
+                ret = quadtree_move_leaf(tree, &node_the_node, point);
+                assert(ret == 1);
                 //printf("Moving point (%f, %f) to (%f, %f)\n", node_the_node2->point->x, node_the_node2->point->y, point->x, point->y);
-                assert(quadtree_move_leaf(tree, &node_the_node2, point) == 1);
+                ret = quadtree_move_leaf(tree, &node_the_node2, point2);
+                assert(ret == 1);
                 assert(node_the_node->point != NULL);
                 assert(node_the_node2->point != NULL);
         }
@@ -581,12 +605,12 @@ main(int argc, const char *argv[]){
         /* test(partial_coverage); */
         /* test(tree_condense_draw); */
         //test(leaf_move);
-
+        /*
         test(weight);
         test(multiple_trees_transfer);
         test(subtree_transfer);
-
+        */
         /* test(rand_tree); */
-        /* test(leaf_move_complex); */
+        test(leaf_move_complex);
         //test(leaf_move_stable);
 }
