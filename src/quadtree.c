@@ -408,7 +408,7 @@ search_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtree_node_list
         if (root == NULL) {
                 return;
         }
-        printf("checking root w bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
+        //printf("checking root w bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
         if(quadtree_node_isleaf(root)){
                 if (bounds_contains_point_(box, root->point)) {
                         quadtree_node_list_add(result, root);
@@ -872,6 +872,8 @@ quadtree_unlink_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_r
         quadtree_node_t *filler_node = quadtree_node_new();
         filler_node->parent          = subtree_root->parent;
         filler_node->coord           = subtree_root->coord;
+        filler_node->bounds = quadtree_bounds_new_with_points(subtree_root->bounds->nw->x, subtree_root->bounds->se->y, subtree_root->bounds->se->x, subtree_root->bounds->nw->y);
+
         assert(quadtree_node_isempty(filler_node));
 
         switch(subtree_root->coord) {
