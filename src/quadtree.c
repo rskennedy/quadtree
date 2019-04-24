@@ -356,7 +356,7 @@ extract_all_within_bounds_(quadtree_node_t *root, quadtree_bounds_t *box, quadtr
                 return;
         }
         else if(quadtree_node_isleaf(root)){
-                printf("Checking if (%lf, %lf) is within (%lf, %lf) (%lf, %lf)\n", root->point->x, root->point->y, box->nw->x, box->nw->y, box->se->x, box->se->y);
+                /* printf("Checking if (%lf, %lf) is within (%lf, %lf) (%lf, %lf)\n", root->point->x, root->point->y, box->nw->x, box->nw->y, box->se->x, box->se->y); */
                 if (bounds_contains_point_(box, root->point))
                         quadtree_node_list_add(result, root);
         } else {
@@ -428,7 +428,7 @@ search_bounds_include_partial_(quadtree_node_t *root, quadtree_bounds_t *box, qu
         if (root == NULL) {
                 return;
         }
-        printf("Checking root w partial bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y);
+        /* printf("Checking root w partial bounds (%lf, %lf) || (%lf, %lf) \n", root->bounds->nw->x, root->bounds->nw->y, root->bounds->se->x, root->bounds->se->y); */
         if(quadtree_node_isleaf(root)){
                 if (bounds_contains_point_(box, root->point)) {
                         quadtree_node_list_add(result, root);
@@ -640,6 +640,7 @@ quadtree_search_bounds(quadtree_t *tree, double x, double y, double radius)
         /* Will contain list of matching nodes */
         quadtree_node_list_t *result = NULL;
         search_bounds_(tree->root, box, &result);
+        quadtree_bounds_free(box);
         return result;
 }
 
@@ -670,6 +671,7 @@ quadtree_search_bounds_include_partial(quadtree_t *tree, double x, double y, dou
         /* Will contain list of matching nodes */
         quadtree_node_list_t *result = NULL;
         search_bounds_include_partial_(tree->root, box, &result);
+        quadtree_bounds_free(box);
         return result;
 }
 
@@ -914,8 +916,8 @@ quadtree_move_subtree(quadtree_t *destination_tree, quadtree_node_t *subtree_roo
 int
 quadtree_move_leaf(quadtree_t *tree, quadtree_node_t **node_p, quadtree_point_t *point)
 {
-        int ret;
-        void *key;
+        int ret = 0;
+        void *key = NULL;
         quadtree_node_t *node = *node_p;
 
         if (tree == NULL || node == NULL || point == NULL)
