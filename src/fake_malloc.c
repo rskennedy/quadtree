@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include "fake_malloc.h"
+#include <stdlib.h>
 
 void *
 rte_malloc(const char *name, unsigned size, unsigned alignment) {
