@@ -5,13 +5,6 @@
 extern "C" {
 #endif
 
-#ifdef _FAKE_MALLOC
-#include "fake_malloc.h"
-
-#else
-//#include <rte_malloc.h>
-#endif
-
 #define QUADTREE_VERSION "0.0.1"
 
 #include <math.h>
